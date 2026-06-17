@@ -418,7 +418,7 @@ function addMatch() {
   const name = document.getElementById('new-match-name').value.trim();
   const date = document.getElementById('new-match-date').value.trim();
   if (!name||!date) { showToast('Ingresa nombre y fecha'); return; }
-  state.matches.push({id:'m'+Date.now(),name,date,done:false,result:'',extraActive:false,extraMinuto:'',extraJugador:''});
+  state.matches.push({id:'m'+Date.now(),name,date,done:false,result:'',extraActive:true,extraMinuto:'',extraJugador:''});
   saveState();
   document.getElementById('new-match-name').value='';
   document.getElementById('new-match-date').value='';
