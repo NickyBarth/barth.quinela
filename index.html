@@ -393,6 +393,12 @@ function renderAdminMatch() {
       </div>
     </div>
     <button class="btn-primary" onclick="saveAdminMatch('${matchId}')">Guardar resultado</button>
+<button 
+  class="btn-primary" 
+  style="background:#d9534f;margin-top:0.5rem;" 
+  onclick="deleteMatch('${matchId}')">
+  Eliminar partido
+</button>
   </div>`;
 }
 
@@ -442,7 +448,42 @@ function showToast(msg) {
   t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
 }
+async function deleteMatch(matchId) {
 
+  const confirmDelete = confirm(
+    '¿Seguro que quieres eliminar este partido?'
+  );
+
+  if (!confirmDelete) return;
+
+  // eliminar partido
+  state.matches = state.matches.filter(
+    m => m.id !== matchId
+  );
+
+  // eliminar predicciones relacionadas
+  PLAYERS.forEach(player => {
+    if (
+      state.predictions[player] &&
+      state.predictions[player][matchId]
+    ) {
+      delete state.predictions[player][matchId];
+    }
+  });
+
+  await saveState();
+
+  showToast('Partido eliminado');
+
+  renderPartidos();
+  renderRanking();
+  renderPredecir();
+  renderAdminMatchSelect();
+
+  document.getElementById(
+    'admin-match-detail'
+  ).innerHTML = '';
+}
 window.showTab = showTab;
 window.submitPred = submitPred;
 window.savePlayer = savePlayer;
@@ -451,6 +492,7 @@ window.renderAdminMatch = renderAdminMatch;
 window.toggleAdminExtra = toggleAdminExtra;
 window.saveAdminMatch = saveAdminMatch;
 window.addMatch = addMatch;
+window.deleteMatch = deleteMatch;
 
 loadState().then(() => {
   listenRealtime();
