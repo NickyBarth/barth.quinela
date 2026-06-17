@@ -443,6 +443,14 @@ function showToast(msg) {
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+window.showTab = showTab;
+window.submitPred = submitPred;
+window.savePlayer = savePlayer;
+window.renderPredecir = renderPredecir;
+window.renderAdminMatch = renderAdminMatch;
+window.toggleAdminExtra = toggleAdminExtra;
+window.saveAdminMatch = saveAdminMatch;
+window.addMatch = addMatch;
 
 loadState().then(() => {
   listenRealtime();
