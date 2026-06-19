@@ -173,6 +173,8 @@ const SEED = {
     'Nicole':{'m1':{score:'4-1',minuto:'28',jugador:'Haaland'}},
     'Steven':{'m1':{score:'3-1',minuto:'',jugador:''}}
   }
+  ,generalResults:{campeon:'',subcampeon:'',goleador:'',asistencias:'',sorpresa:''},
+  premio:'Por definir'
 };
 
 let state;
@@ -243,14 +245,23 @@ function calcPoints() {
       if (m.extraActive && m.extraJugador && pred.jugador && pred.jugador.trim().toLowerCase() === m.extraJugador.trim().toLowerCase()) pts[p] += 1;
     });
   });
-  return pts;
+  PLAYERS.forEach(p=>{
+ const gp=((state.generalPredictions||{})[p])||{};
+ const gr=state.generalResults||{};
+ if(gp.campeon && gp.campeon===gr.campeon) pts[p]+=10;
+ if(gp.subcampeon && gp.subcampeon===gr.subcampeon) pts[p]+=5;
+ if(gp.goleador && gp.goleador===gr.goleador) pts[p]+=5;
+ if(gp.asistencias && gp.asistencias===gr.asistencias) pts[p]+=5;
+ if(gp.sorpresa && gp.sorpresa===gr.sorpresa) pts[p]+=5;
+});
+return pts;
 }
 
 function renderRanking() {
   const pts = calcPoints();
   const sorted = PLAYERS.slice().sort((a,b) => pts[b]-pts[a]);
   const medals = ['🥇','🥈','🥉','4️⃣'];
-  let html = '';
+  let html = `<div class='card'><b>🏅 PREMIO:</b> ${state.premio||'Por definir'}<br><br><b>📋 Puntuación</b><br>Marcador exacto +3<br>Primer goleador +1<br>Minuto primer gol +1<br>🏆 Campeón +10<br>🥈 Subcampeón +5<br>⚽ Máximo goleador +5<br>🎯 Más asistencias +5<br>🌟 Sorpresa +5</div>`;
   sorted.forEach((p,i) => {
     html += `<div class="ranking-item">
       <div class="rank-num">${medals[i]}</div>
@@ -266,7 +277,7 @@ function renderRanking() {
 }
 
 function renderPartidos() {
-  let html = '';
+  let html = generalBlock;
   let lastDate = '';
   if (!state.matches.length) { document.getElementById('partidos-list').innerHTML = '<div class="empty-state">No hay partidos aún. Agrégalos desde Admin.</div>'; return; }
   state.matches.forEach(m => {
@@ -301,6 +312,16 @@ function renderPredecir() {
   currentPlayer = document.getElementById('player-select').value;
   if (!currentPlayer) { document.getElementById('predecir-list').innerHTML = '<div class="empty-state">Selecciona tu nombre arriba</div>'; return; }
   const myPreds = state.predictions[currentPlayer]||{};
+const gp=((state.generalPredictions||{})[currentPlayer])||{};
+let generalBlock=`<div class="card"><h3>⭐ Predicciones Generales</h3><br>
+<input type="text" id="gp-campeon" placeholder="Campeón" value="${gp.campeon||''}"><br><br>
+<input type="text" id="gp-subcampeon" placeholder="Subcampeón" value="${gp.subcampeon||''}"><br><br>
+<input type="text" id="gp-goleador" placeholder="Máximo goleador" value="${gp.goleador||''}"><br><br>
+<input type="text" id="gp-asistencias" placeholder="Más asistencias" value="${gp.asistencias||''}"><br><br>
+<input type="text" id="gp-sorpresa" placeholder="Sorpresa del Mundial" value="${gp.sorpresa||''}"><br><br>
+<button class="btn-primary" onclick="saveGeneralPredictions()">Guardar Predicciones Generales</button>
+</div>`;
+
   const pending = state.matches.filter(m=>!m.done);
   let html = '';
   if (!pending.length) { html = '<div class="empty-state">No hay partidos pendientes por predecir</div>'; }
@@ -484,6 +505,21 @@ async function deleteMatch(matchId) {
     'admin-match-detail'
   ).innerHTML = '';
 }
+
+async function saveGeneralPredictions(){
+ if(!state.generalPredictions) state.generalPredictions={};
+ state.generalPredictions[currentPlayer]={
+  campeon:document.getElementById('gp-campeon').value,
+  subcampeon:document.getElementById('gp-subcampeon').value,
+  goleador:document.getElementById('gp-goleador').value,
+  asistencias:document.getElementById('gp-asistencias').value,
+  sorpresa:document.getElementById('gp-sorpresa').value
+ };
+ await saveState();
+ showToast('Predicciones generales guardadas');
+}
+
+window.saveGeneralPredictions = saveGeneralPredictions;
 window.showTab = showTab;
 window.submitPred = submitPred;
 window.savePlayer = savePlayer;
