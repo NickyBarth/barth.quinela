@@ -226,6 +226,34 @@ function sameText(a, b) {
   return cleanText(a).toLowerCase() === cleanText(b).toLowerCase();
 }
 
+function parseScore(score) {
+  const parts = cleanText(score).split('-').map(x => parseInt(x, 10));
+  if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return null;
+  return {a: parts[0], b: parts[1]};
+}
+
+function outcome(score) {
+  const s = parseScore(score);
+  if (!s) return '';
+  if (s.a > s.b) return 'A';
+  if (s.a < s.b) return 'B';
+  return 'D';
+}
+
+function winnerHit(predScore, realScore) {
+  const predOutcome = outcome(predScore);
+  const realOutcome = outcome(realScore);
+  return !!(predOutcome && realOutcome && predOutcome === realOutcome && cleanText(predScore) !== cleanText(realScore));
+}
+
+function minuteHit(predMinuto, realMinuto) {
+  const pred = parseInt(cleanText(predMinuto), 10);
+  const real = parseInt(cleanText(realMinuto), 10);
+  if (Number.isNaN(pred) || Number.isNaN(real)) return false;
+  return Math.abs(pred - real) <= 1;
+}
+
+
 function ensureStateShape() {
   if (!state.matches) state.matches = [];
   if (!state.predictions) state.predictions = {};
@@ -370,7 +398,8 @@ function calcPoints() {
       if (!pred) return;
 
       if (cleanText(pred.score) === cleanText(m.result)) pts[p] += 3;
-      if (m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && sameText(pred.minuto, m.extraMinuto)) pts[p] += 1;
+      else if (winnerHit(pred.score, m.result)) pts[p] += 1;
+      if (m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && minuteHit(pred.minuto, m.extraMinuto)) pts[p] += 1;
       if (m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador)) pts[p] += 1;
     });
   });
@@ -417,8 +446,9 @@ function renderRanking() {
     <div class="points-box">
       <b>Partidos</b><br>
       ✅ Marcador exacto: +3 pts<br>
+      ✅ Ganador del partido: +1 pt<br>
       ✅ Primer goleador: +1 pt<br>
-      ✅ Minuto del primer gol: +1 pt<br><br>
+      ✅ Minuto del primer gol: +1 pt <span style="color:#888;">(ventana ±1 min)</span><br><br>
       <b>Predicciones Generales</b><br>
       🏆 Campeón: +10 pts<br>
       🥈 Subcampeón: +5 pts<br>
@@ -452,7 +482,8 @@ function renderPartidos() {
     PLAYERS.forEach(p => {
       const pred = (state.predictions[p]||{})[m.id];
       const scoreHit = m.done && pred && cleanText(pred.score) === cleanText(m.result);
-      const minutoHit = m.done && pred && m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && sameText(pred.minuto, m.extraMinuto);
+      const winnerOnlyHit = m.done && pred && winnerHit(pred.score, m.result);
+      const minutoHit = m.done && pred && m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && minuteHit(pred.minuto, m.extraMinuto);
       const jugadorHit = m.done && pred && m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador);
 
       let extraHtml = '';
@@ -467,7 +498,7 @@ function renderPartidos() {
 
       predsHtml += `<div class="pred-item ${scoreHit?'pred-hit':''}">
         <div class="pred-name">${p}</div>
-        <div class="pred-score">${pred?cleanText(pred.score):'—'} ${scoreHit ? '✅ +3' : ''}</div>
+        <div class="pred-score">${pred?cleanText(pred.score):'—'} ${scoreHit ? '✅ +3' : (winnerOnlyHit ? '✅ +1 ganador' : '')}</div>
         ${extraHtml}
       </div>`;
     });
