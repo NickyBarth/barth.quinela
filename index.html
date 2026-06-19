@@ -59,6 +59,14 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 .toast.show { opacity: 1; }
 .empty-state { text-align: center; padding: 2rem 1rem; color: #aaa; font-size: 14px; }
 .group-label { font-size: 11px; font-weight: 600; color: #bbb; letter-spacing: 0.06em; text-transform: uppercase; margin: 1.25rem 0 0.5rem; }
+
+.general-list { font-size: 11px; color: #666; margin-top: 6px; line-height: 1.45; }
+.general-hit { color: #0F6E56; font-weight: 600; }
+.points-box { font-size: 12px; color: #555; line-height: 1.6; }
+.points-title { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 0.5rem; }
+.pred-extra-hit { background: #E1F5EE; color: #0F6E56; font-weight: 700; border-radius: 7px; padding: 2px 6px; display: inline-block; }
+.general-saved { background:#E1F5EE; color:#0F6E56; border-radius:10px; padding:10px; font-size:12px; line-height:1.5; }
+
 </style>
 </head>
 <body>
@@ -127,6 +135,35 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
       </div>
       <button class="btn-primary" onclick="addMatch()">Agregar partido</button>
     </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:1rem;color:#1a1a1a;">Predicciones Generales / Premio</div>
+      <div class="form-group">
+        <label class="form-label">Premio</label>
+        <input type="text" id="admin-premio" placeholder="Por definir">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Campeón real</label>
+        <input type="text" id="admin-gr-campeon" placeholder="Ej: Argentina">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subcampeón real</label>
+        <input type="text" id="admin-gr-subcampeon" placeholder="Ej: Francia">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Máximo goleador real</label>
+        <input type="text" id="admin-gr-goleador" placeholder="Ej: Mbappé">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Más asistencias real</label>
+        <input type="text" id="admin-gr-asistencias" placeholder="Ej: Messi">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sorpresa del Mundial real</label>
+        <input type="text" id="admin-gr-sorpresa" placeholder="Ej: Japón">
+      </div>
+      <button class="btn-primary" onclick="saveAdminGeneral()">Guardar Predicciones Generales / Premio</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -172,13 +209,98 @@ const SEED = {
     'Francisco':{'m1':{score:'3-1',minuto:'',jugador:''}},
     'Nicole':{'m1':{score:'4-1',minuto:'28',jugador:'Haaland'}},
     'Steven':{'m1':{score:'3-1',minuto:'',jugador:''}}
-  }
-  ,generalResults:{campeon:'',subcampeon:'',goleador:'',asistencias:'',sorpresa:''},
-  premio:'Por definir'
+  },
+  generalPredictions: {},
+  generalResults: {campeon:'',subcampeon:'',goleador:'',asistencias:'',sorpresa:''},
+  premio: 'Por definir'
 };
 
 let state;
 let currentPlayer = '';
+
+function cleanText(value) {
+  return (value || '').toString().trim();
+}
+
+function sameText(a, b) {
+  return cleanText(a).toLowerCase() === cleanText(b).toLowerCase();
+}
+
+function ensureStateShape() {
+  if (!state.matches) state.matches = [];
+  if (!state.predictions) state.predictions = {};
+  PLAYERS.forEach(p => {
+    if (!state.predictions[p]) state.predictions[p] = {};
+  });
+  if (!state.generalPredictions) state.generalPredictions = {};
+  if (!state.generalResults) state.generalResults = {};
+  ['campeon','subcampeon','goleador','asistencias','sorpresa'].forEach(k => {
+    if (state.generalResults[k] === undefined) state.generalResults[k] = '';
+  });
+  if (!state.premio) state.premio = 'Por definir';
+}
+
+function generalComplete(gp) {
+  return !!(gp && cleanText(gp.campeon) && cleanText(gp.subcampeon) && cleanText(gp.goleador) && cleanText(gp.asistencias) && cleanText(gp.sorpresa));
+}
+
+function generalHit(player, key) {
+  const gp = (state.generalPredictions || {})[player] || {};
+  const gr = state.generalResults || {};
+  return !!(cleanText(gp[key]) && cleanText(gr[key]) && sameText(gp[key], gr[key]));
+}
+
+function generalValue(player, key) {
+  const gp = (state.generalPredictions || {})[player] || {};
+  return cleanText(gp[key]) || '—';
+}
+
+function resultBadge(player, key, pts) {
+  return generalHit(player, key) ? ` <span class="general-hit">✅ +${pts}</span>` : '';
+}
+
+function buildGeneralSummary(player) {
+  const gp = (state.generalPredictions || {})[player] || {};
+  if (!generalComplete(gp)) {
+    return `<div class="general-list">Predicciones generales: pendiente</div>`;
+  }
+  return `<div class="general-list">
+    🏆 Campeón: ${generalValue(player,'campeon')}${resultBadge(player,'campeon',10)}<br>
+    🥈 Subcampeón: ${generalValue(player,'subcampeon')}${resultBadge(player,'subcampeon',5)}<br>
+    ⚽ Goleador: ${generalValue(player,'goleador')}${resultBadge(player,'goleador',5)}<br>
+    🎯 Asistencias: ${generalValue(player,'asistencias')}${resultBadge(player,'asistencias',5)}<br>
+    🌟 Sorpresa: ${generalValue(player,'sorpresa')}${resultBadge(player,'sorpresa',5)}
+  </div>`;
+}
+
+function buildGeneralPredictionsBlock(player) {
+  const gp = (state.generalPredictions || {})[player] || {};
+  if (generalComplete(gp)) {
+    return `<div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;color:#1a1a1a;">⭐ Predicciones Generales</div>
+      <div class="general-saved">
+        Guardadas ✓<br>
+        🏆 Campeón: ${cleanText(gp.campeon)}<br>
+        🥈 Subcampeón: ${cleanText(gp.subcampeon)}<br>
+        ⚽ Máximo goleador: ${cleanText(gp.goleador)}<br>
+        🎯 Más asistencias: ${cleanText(gp.asistencias)}<br>
+        🌟 Sorpresa: ${cleanText(gp.sorpresa)}
+      </div>
+      <div style="font-size:11px;color:#bbb;margin-top:8px;">Ya no puedes editar tus predicciones generales</div>
+    </div>`;
+  }
+
+  return `<div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:0.75rem;color:#1a1a1a;">⭐ Predicciones Generales</div>
+    <div class="form-group"><label class="form-label">Campeón</label><input type="text" id="gp-campeon" placeholder="Ej: Argentina" value="${cleanText(gp.campeon)}"></div>
+    <div class="form-group"><label class="form-label">Subcampeón</label><input type="text" id="gp-subcampeon" placeholder="Ej: Francia" value="${cleanText(gp.subcampeon)}"></div>
+    <div class="form-group"><label class="form-label">Máximo goleador</label><input type="text" id="gp-goleador" placeholder="Ej: Mbappé" value="${cleanText(gp.goleador)}"></div>
+    <div class="form-group"><label class="form-label">Más asistencias</label><input type="text" id="gp-asistencias" placeholder="Ej: Messi" value="${cleanText(gp.asistencias)}"></div>
+    <div class="form-group"><label class="form-label">Sorpresa del Mundial</label><input type="text" id="gp-sorpresa" placeholder="Ej: Japón" value="${cleanText(gp.sorpresa)}"></div>
+    <button class="btn-primary" onclick="saveGeneralPredictions()">Guardar Predicciones Generales</button>
+  </div>`;
+}
+
 
 function listenRealtime() {
   const ref = doc(db, "quiniela", "estado");
@@ -186,6 +308,7 @@ function listenRealtime() {
   onSnapshot(ref, (snap) => {
     if (snap.exists()) {
       state = snap.data();
+      ensureStateShape();
 
       renderRanking();
       renderPartidos();
@@ -203,8 +326,10 @@ async function loadState() {
 
   if (snap.exists()) {
     state = snap.data();
+    ensureStateShape();
   } else {
     state = JSON.parse(JSON.stringify(SEED));
+    ensureStateShape();
     await setDoc(ref, state);
   }
 
@@ -223,6 +348,7 @@ async function loadState() {
 
 
 async function saveState() {
+  ensureStateShape();
   const ref = doc(db, "quiniela", "estado");
   await setDoc(ref, state);
 }
@@ -234,68 +360,118 @@ function savePlayer() {
 }
 
 function calcPoints() {
+  ensureStateShape();
   const pts = {Faride:0,Francisco:0,Nicole:0,Steven:0};
+
   state.matches.forEach(m => {
     if (!m.done || !m.result) return;
     PLAYERS.forEach(p => {
       const pred = (state.predictions[p]||{})[m.id];
       if (!pred) return;
-      if (pred.score === m.result) pts[p] += 3;
-      if (m.extraActive && m.extraMinuto && pred.minuto && pred.minuto.trim() === m.extraMinuto.trim()) pts[p] += 1;
-      if (m.extraActive && m.extraJugador && pred.jugador && pred.jugador.trim().toLowerCase() === m.extraJugador.trim().toLowerCase()) pts[p] += 1;
+
+      if (cleanText(pred.score) === cleanText(m.result)) pts[p] += 3;
+      if (m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && sameText(pred.minuto, m.extraMinuto)) pts[p] += 1;
+      if (m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador)) pts[p] += 1;
     });
   });
-  PLAYERS.forEach(p=>{
- const gp=((state.generalPredictions||{})[p])||{};
- const gr=state.generalResults||{};
- if(gp.campeon && gp.campeon===gr.campeon) pts[p]+=10;
- if(gp.subcampeon && gp.subcampeon===gr.subcampeon) pts[p]+=5;
- if(gp.goleador && gp.goleador===gr.goleador) pts[p]+=5;
- if(gp.asistencias && gp.asistencias===gr.asistencias) pts[p]+=5;
- if(gp.sorpresa && gp.sorpresa===gr.sorpresa) pts[p]+=5;
-});
-return pts;
+
+  const gr = state.generalResults || {};
+  PLAYERS.forEach(p => {
+    const gp = (state.generalPredictions || {})[p] || {};
+    if (cleanText(gp.campeon) && cleanText(gr.campeon) && sameText(gp.campeon, gr.campeon)) pts[p] += 10;
+    if (cleanText(gp.subcampeon) && cleanText(gr.subcampeon) && sameText(gp.subcampeon, gr.subcampeon)) pts[p] += 5;
+    if (cleanText(gp.goleador) && cleanText(gr.goleador) && sameText(gp.goleador, gr.goleador)) pts[p] += 5;
+    if (cleanText(gp.asistencias) && cleanText(gr.asistencias) && sameText(gp.asistencias, gr.asistencias)) pts[p] += 5;
+    if (cleanText(gp.sorpresa) && cleanText(gr.sorpresa) && sameText(gp.sorpresa, gr.sorpresa)) pts[p] += 5;
+  });
+
+  return pts;
 }
 
 function renderRanking() {
+  ensureStateShape();
   const pts = calcPoints();
   const sorted = PLAYERS.slice().sort((a,b) => pts[b]-pts[a]);
   const medals = ['🥇','🥈','🥉','4️⃣'];
-  let html = `<div class='card'><b>🏅 PREMIO:</b> ${state.premio||'Por definir'}<br><br><b>📋 Puntuación</b><br>Marcador exacto +3<br>Primer goleador +1<br>Minuto primer gol +1<br>🏆 Campeón +10<br>🥈 Subcampeón +5<br>⚽ Máximo goleador +5<br>🎯 Más asistencias +5<br>🌟 Sorpresa +5</div>`;
+  let html = '';
+
   sorted.forEach((p,i) => {
     html += `<div class="ranking-item">
       <div class="rank-num">${medals[i]}</div>
       <div class="avatar" style="background:${BG[p]};color:${COLORS[p]};">${INITIALS[p]}</div>
-      <div class="rank-name">${p}</div>
+      <div class="rank-name">${p}${buildGeneralSummary(p)}</div>
       <div style="text-align:right;">
         <div class="rank-pts">${pts[p]}</div>
         <div class="rank-pts-label">pts</div>
       </div>
     </div>`;
   });
+
+  html += `<div style="border-top:1px solid #f0f0ec;margin-top:0.75rem;padding-top:1rem;">
+    <div class="points-title">🏅 PREMIO</div>
+    <div class="points-box">${cleanText(state.premio) || 'Por definir'}</div>
+  </div>`;
+
+  html += `<div style="border-top:1px solid #f0f0ec;margin-top:1rem;padding-top:1rem;">
+    <div class="points-title">📋 Sistema de Puntos</div>
+    <div class="points-box">
+      <b>Partidos</b><br>
+      ✅ Marcador exacto: +3 pts<br>
+      ✅ Primer goleador: +1 pt<br>
+      ✅ Minuto del primer gol: +1 pt<br><br>
+      <b>Predicciones Generales</b><br>
+      🏆 Campeón: +10 pts<br>
+      🥈 Subcampeón: +5 pts<br>
+      ⚽ Máximo goleador: +5 pts<br>
+      🎯 Más asistencias: +5 pts<br>
+      🌟 Sorpresa del Mundial: +5 pts
+    </div>
+  </div>`;
+
   document.getElementById('ranking-list').innerHTML = html;
 }
 
 function renderPartidos() {
-  let html = generalBlock;
+  ensureStateShape();
+  let html = '';
   let lastDate = '';
-  if (!state.matches.length) { document.getElementById('partidos-list').innerHTML = '<div class="empty-state">No hay partidos aún. Agrégalos desde Admin.</div>'; return; }
+
+  if (!state.matches.length) {
+    document.getElementById('partidos-list').innerHTML = '<div class="empty-state">No hay partidos aún. Agrégalos desde Admin.</div>';
+    return;
+  }
+
   state.matches.forEach(m => {
-    if (m.date !== lastDate) { html += `<div class="group-label">${m.date}</div>`; lastDate = m.date; }
+    if (m.date !== lastDate) {
+      html += `<div class="group-label">${m.date}</div>`;
+      lastDate = m.date;
+    }
+
     let predsHtml = '';
+
     PLAYERS.forEach(p => {
       const pred = (state.predictions[p]||{})[m.id];
-      const hit = m.done && pred && pred.score === m.result;
+      const scoreHit = m.done && pred && cleanText(pred.score) === cleanText(m.result);
+      const minutoHit = m.done && pred && m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && sameText(pred.minuto, m.extraMinuto);
+      const jugadorHit = m.done && pred && m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador);
+
       let extraHtml = '';
       if (m.extraActive && pred) {
-        if (pred.minuto) extraHtml += `<div class="pred-extra">⏱ min ${pred.minuto}</div>`;
-        if (pred.jugador) extraHtml += `<div class="pred-extra">⚽ ${pred.jugador}</div>`;
+        if (cleanText(pred.minuto)) {
+          extraHtml += `<div class="pred-extra ${minutoHit ? 'pred-extra-hit' : ''}">${minutoHit ? '✅ +1 ' : ''}⏱ min ${cleanText(pred.minuto)}</div>`;
+        }
+        if (cleanText(pred.jugador)) {
+          extraHtml += `<div class="pred-extra ${jugadorHit ? 'pred-extra-hit' : ''}">${jugadorHit ? '✅ +1 ' : ''}⚽ ${cleanText(pred.jugador)}</div>`;
+        }
       }
-      predsHtml += `<div class="pred-item ${hit?'pred-hit':''}">
+
+      predsHtml += `<div class="pred-item ${scoreHit?'pred-hit':''}">
         <div class="pred-name">${p}</div>
-        <div class="pred-score">${pred?pred.score:'—'}</div>${extraHtml}
+        <div class="pred-score">${pred?cleanText(pred.score):'—'} ${scoreHit ? '✅ +3' : ''}</div>
+        ${extraHtml}
       </div>`;
     });
+
     html += `<div class="match-card">
       <div class="match-header">
         <div class="match-title">${m.name}</div>
@@ -303,28 +479,21 @@ function renderPartidos() {
       </div>
       <div class="predictions-grid">${predsHtml}</div>
       ${m.done&&m.result?`<div class="result-row"><span class="result-label">Resultado final:</span><span class="result-score">${m.result}</span></div>`:''}
+      ${m.done&&m.extraActive&&(m.extraMinuto||m.extraJugador)?`<div class="result-row"><span class="result-label">Extras reales:</span><span class="result-score">${m.extraMinuto?`⏱ ${m.extraMinuto}`:''} ${m.extraJugador?`⚽ ${m.extraJugador}`:''}</span></div>`:''}
     </div>`;
   });
+
   document.getElementById('partidos-list').innerHTML = html;
 }
 
 function renderPredecir() {
   currentPlayer = document.getElementById('player-select').value;
   if (!currentPlayer) { document.getElementById('predecir-list').innerHTML = '<div class="empty-state">Selecciona tu nombre arriba</div>'; return; }
+  ensureStateShape();
   const myPreds = state.predictions[currentPlayer]||{};
-const gp=((state.generalPredictions||{})[currentPlayer])||{};
-let generalBlock=`<div class="card"><h3>⭐ Predicciones Generales</h3><br>
-<input type="text" id="gp-campeon" placeholder="Campeón" value="${gp.campeon||''}"><br><br>
-<input type="text" id="gp-subcampeon" placeholder="Subcampeón" value="${gp.subcampeon||''}"><br><br>
-<input type="text" id="gp-goleador" placeholder="Máximo goleador" value="${gp.goleador||''}"><br><br>
-<input type="text" id="gp-asistencias" placeholder="Más asistencias" value="${gp.asistencias||''}"><br><br>
-<input type="text" id="gp-sorpresa" placeholder="Sorpresa del Mundial" value="${gp.sorpresa||''}"><br><br>
-<button class="btn-primary" onclick="saveGeneralPredictions()">Guardar Predicciones Generales</button>
-</div>`;
-
   const pending = state.matches.filter(m=>!m.done);
-  let html = '';
-  if (!pending.length) { html = '<div class="empty-state">No hay partidos pendientes por predecir</div>'; }
+  let html = buildGeneralPredictionsBlock(currentPlayer);
+  if (!pending.length) { html += '<div class="empty-state">No hay partidos pendientes por predecir</div>'; }
   else {
     let lastDate = '';
     pending.forEach(m => {
@@ -461,7 +630,7 @@ function showTab(tab) {
   if (tab==='ranking') renderRanking();
   if (tab==='partidos') renderPartidos();
   if (tab==='predecir') renderPredecir();
-  if (tab==='admin') { renderAdminMatchSelect(); document.getElementById('admin-match-detail').innerHTML=''; }
+  if (tab==='admin') { renderAdminMatchSelect(); renderAdminGeneral(); document.getElementById('admin-match-detail').innerHTML=''; }
 }
 
 function showToast(msg) {
@@ -469,6 +638,71 @@ function showToast(msg) {
   t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
 }
+
+async function saveGeneralPredictions() {
+  ensureStateShape();
+  currentPlayer = document.getElementById('player-select').value;
+
+  if (!currentPlayer) {
+    showToast('Selecciona tu nombre primero');
+    return;
+  }
+
+  const values = {
+    campeon: cleanText(document.getElementById('gp-campeon')?.value),
+    subcampeon: cleanText(document.getElementById('gp-subcampeon')?.value),
+    goleador: cleanText(document.getElementById('gp-goleador')?.value),
+    asistencias: cleanText(document.getElementById('gp-asistencias')?.value),
+    sorpresa: cleanText(document.getElementById('gp-sorpresa')?.value)
+  };
+
+  if (!values.campeon || !values.subcampeon || !values.goleador || !values.asistencias || !values.sorpresa) {
+    showToast('Completa todas las predicciones generales');
+    return;
+  }
+
+  if (!state.generalPredictions) state.generalPredictions = {};
+  state.generalPredictions[currentPlayer] = values;
+
+  await saveState();
+  showToast('Predicciones generales guardadas');
+  renderPredecir();
+  renderRanking();
+}
+
+function renderAdminGeneral() {
+  ensureStateShape();
+  const gr = state.generalResults || {};
+
+  const premio = document.getElementById('admin-premio');
+  if (!premio) return;
+
+  premio.value = cleanText(state.premio) || 'Por definir';
+  document.getElementById('admin-gr-campeon').value = cleanText(gr.campeon);
+  document.getElementById('admin-gr-subcampeon').value = cleanText(gr.subcampeon);
+  document.getElementById('admin-gr-goleador').value = cleanText(gr.goleador);
+  document.getElementById('admin-gr-asistencias').value = cleanText(gr.asistencias);
+  document.getElementById('admin-gr-sorpresa').value = cleanText(gr.sorpresa);
+}
+
+async function saveAdminGeneral() {
+  ensureStateShape();
+
+  state.premio = cleanText(document.getElementById('admin-premio').value) || 'Por definir';
+  state.generalResults = {
+    campeon: cleanText(document.getElementById('admin-gr-campeon').value),
+    subcampeon: cleanText(document.getElementById('admin-gr-subcampeon').value),
+    goleador: cleanText(document.getElementById('admin-gr-goleador').value),
+    asistencias: cleanText(document.getElementById('admin-gr-asistencias').value),
+    sorpresa: cleanText(document.getElementById('admin-gr-sorpresa').value)
+  };
+
+  await saveState();
+  showToast('Generales / Premio guardados');
+  renderRanking();
+  renderAdminGeneral();
+}
+
 async function deleteMatch(matchId) {
 
   const confirmDelete = confirm(
@@ -505,21 +739,6 @@ async function deleteMatch(matchId) {
     'admin-match-detail'
   ).innerHTML = '';
 }
-
-async function saveGeneralPredictions(){
- if(!state.generalPredictions) state.generalPredictions={};
- state.generalPredictions[currentPlayer]={
-  campeon:document.getElementById('gp-campeon').value,
-  subcampeon:document.getElementById('gp-subcampeon').value,
-  goleador:document.getElementById('gp-goleador').value,
-  asistencias:document.getElementById('gp-asistencias').value,
-  sorpresa:document.getElementById('gp-sorpresa').value
- };
- await saveState();
- showToast('Predicciones generales guardadas');
-}
-
-window.saveGeneralPredictions = saveGeneralPredictions;
 window.showTab = showTab;
 window.submitPred = submitPred;
 window.savePlayer = savePlayer;
@@ -529,11 +748,14 @@ window.toggleAdminExtra = toggleAdminExtra;
 window.saveAdminMatch = saveAdminMatch;
 window.addMatch = addMatch;
 window.deleteMatch = deleteMatch;
+window.saveGeneralPredictions = saveGeneralPredictions;
+window.saveAdminGeneral = saveAdminGeneral;
 
 loadState().then(() => {
   listenRealtime();
   renderPredecir();
   renderAdminMatchSelect();
+  renderAdminGeneral();
 });
 
 </script>
