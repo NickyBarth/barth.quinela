@@ -243,7 +243,7 @@ function outcome(score) {
 function winnerHit(predScore, realScore) {
   const predOutcome = outcome(predScore);
   const realOutcome = outcome(realScore);
-  return !!(predOutcome && realOutcome && predOutcome === realOutcome && cleanText(predScore) !== cleanText(realScore));
+  return !!(predOutcome && realOutcome && predOutcome === realOutcome);
 }
 
 function minuteHit(predMinuto, realMinuto) {
@@ -398,7 +398,7 @@ function calcPoints() {
       if (!pred) return;
 
       if (cleanText(pred.score) === cleanText(m.result)) pts[p] += 3;
-      else if (winnerHit(pred.score, m.result)) pts[p] += 1;
+      if (winnerHit(pred.score, m.result)) pts[p] += 1;
       if (m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && minuteHit(pred.minuto, m.extraMinuto)) pts[p] += 1;
       if (m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador)) pts[p] += 1;
     });
@@ -446,7 +446,7 @@ function renderRanking() {
     <div class="points-box">
       <b>Partidos</b><br>
       ✅ Marcador exacto: +3 pts<br>
-      ✅ Ganador del partido: +1 pt<br>
+      ✅ Ganador del partido / empate: +1 pt
       ✅ Primer goleador: +1 pt<br>
       ✅ Minuto del primer gol: +1 pt <span style="color:#888;">(ventana ±1 min)</span><br><br>
       <b>Predicciones Generales</b><br>
@@ -498,7 +498,7 @@ function renderPartidos() {
 
       predsHtml += `<div class="pred-item ${scoreHit?'pred-hit':''}">
         <div class="pred-name">${p}</div>
-        <div class="pred-score">${pred?cleanText(pred.score):'—'} ${scoreHit ? '✅ +3' : (winnerOnlyHit ? '✅ +1 ganador' : '')}</div>
+        <div class="pred-score">${pred?cleanText(pred.score):'—'} ${scoreHit ? '✅ +3' : ''} ${winnerOnlyHit ? '✅ +1 ganador' : ''}</div>
         ${extraHtml}
       </div>`;
     });
@@ -792,3 +792,4 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
