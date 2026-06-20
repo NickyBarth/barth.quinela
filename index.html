@@ -67,6 +67,11 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 .pred-extra-hit { background: #E1F5EE; color: #0F6E56; font-weight: 700; border-radius: 7px; padding: 2px 6px; display: inline-block; }
 .general-saved { background:#E1F5EE; color:#0F6E56; border-radius:10px; padding:10px; font-size:12px; line-height:1.5; }
 
+
+.match-filter-tabs { display: flex; gap: 8px; margin-bottom: 1rem; }
+.match-filter-tab { flex: 1; padding: 10px 8px; border-radius: 10px; border: 1px solid #e5e5e0; background: #fff; color: #777; font-size: 13px; font-weight: 600; cursor: pointer; }
+.match-filter-tab.active { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+
 </style>
 </head>
 <body>
@@ -217,6 +222,7 @@ const SEED = {
 
 let state;
 let currentPlayer = '';
+let partidosView = 'pendientes';
 
 function cleanText(value) {
   return (value || '').toString().trim();
@@ -446,7 +452,8 @@ function renderRanking() {
     <div class="points-box">
       <b>Partidos</b><br>
       ✅ Marcador exacto: +3 pts<br>
-      ✅ Ganador del partido / empate: +1 pt
+      ✅ Ganador del partido / empate: +1 pt<br>
+      <span style="color:#888;">El punto de ganador también suma aunque pegues el marcador exacto.</span><br>
       ✅ Primer goleador: +1 pt<br>
       ✅ Minuto del primer gol: +1 pt <span style="color:#888;">(ventana ±1 min)</span><br><br>
       <b>Predicciones Generales</b><br>
@@ -463,15 +470,34 @@ function renderRanking() {
 
 function renderPartidos() {
   ensureStateShape();
-  let html = '';
+
+  const pendingCount = state.matches.filter(m => !m.done).length;
+  const doneCount = state.matches.filter(m => m.done).length;
+
+  let html = `<div class="match-filter-tabs">
+    <button class="match-filter-tab ${partidosView === 'pendientes' ? 'active' : ''}" onclick="setPartidosView('pendientes')">Pendientes (${pendingCount})</button>
+    <button class="match-filter-tab ${partidosView === 'finalizados' ? 'active' : ''}" onclick="setPartidosView('finalizados')">Finalizados (${doneCount})</button>
+  </div>`;
+
   let lastDate = '';
 
   if (!state.matches.length) {
-    document.getElementById('partidos-list').innerHTML = '<div class="empty-state">No hay partidos aún. Agrégalos desde Admin.</div>';
+    document.getElementById('partidos-list').innerHTML = html + '<div class="empty-state">No hay partidos aún. Agrégalos desde Admin.</div>';
     return;
   }
 
-  state.matches.forEach(m => {
+  const visibleMatches = state.matches.filter(m => {
+    if (partidosView === 'pendientes') return !m.done;
+    if (partidosView === 'finalizados') return m.done;
+    return true;
+  });
+
+  if (!visibleMatches.length) {
+    document.getElementById('partidos-list').innerHTML = html + `<div class="empty-state">${partidosView === 'pendientes' ? 'No hay partidos pendientes' : 'No hay partidos finalizados'}</div>`;
+    return;
+  }
+
+  visibleMatches.forEach(m => {
     if (m.date !== lastDate) {
       html += `<div class="group-label">${m.date}</div>`;
       lastDate = m.date;
@@ -653,6 +679,11 @@ function addMatch() {
   renderPartidos(); renderPredecir(); renderAdminMatchSelect();
 }
 
+function setPartidosView(view) {
+  partidosView = view;
+  renderPartidos();
+}
+
 function showTab(tab) {
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -779,6 +810,7 @@ window.toggleAdminExtra = toggleAdminExtra;
 window.saveAdminMatch = saveAdminMatch;
 window.addMatch = addMatch;
 window.deleteMatch = deleteMatch;
+window.setPartidosView = setPartidosView;
 window.saveGeneralPredictions = saveGeneralPredictions;
 window.saveAdminGeneral = saveAdminGeneral;
 
