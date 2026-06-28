@@ -14,20 +14,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #fff;
+  background-color: #fff;
+  background-image: url("./ball-worldcup.jpg.avif"), url("./ball-worldcup.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
   border: 1px solid #e5e5e0;
-}
-
-.header-ball {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+  flex-shrink: 0;
 }.header-title { font-size: 17px; font-weight: 600; color: #1a1a1a; }
 .header-sub { font-size: 12px; color: #888; }
 .tab-bar { display: flex; border-bottom: 1px solid #e5e5e0; background: #fff; position: sticky; top: 0; z-index: 10; overflow-x: auto; }
@@ -120,9 +118,7 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 <body>
 <div class="app">
   <div class="header">
-    <div class="header-icon" onclick="refreshPage()" title="Actualizar quiniela">
-  <img src="ball-worldcup.jpg" alt="Balón Mundial" class="header-ball">
-	</div>
+    <div class="header-icon" onclick="refreshPage()" title="Actualizar quiniela" aria-label="Actualizar quiniela"></div>
     <div>
       <div class="header-title" onclick="refreshPage()" style="cursor:pointer;">Quiniela Barth</div>
       <div class="header-sub">Mundial 2026</div>
@@ -1307,6 +1303,10 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
+
+
+
 
 
 
