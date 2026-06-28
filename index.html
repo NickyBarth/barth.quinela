@@ -10,8 +10,25 @@
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; }
 .app { max-width: 420px; margin: 0 auto; padding: 0 0 4rem; }
 .header { padding: 1.25rem 1rem 0; display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; }
-.header-icon { width: 38px; height: 38px; border-radius: 50%; background: #E1F5EE; display: flex; align-items: center; justify-content: center; }
-.header-title { font-size: 17px; font-weight: 600; color: #1a1a1a; }
+.header-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  border: 1px solid #e5e5e0;
+}
+
+.header-ball {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}.header-title { font-size: 17px; font-weight: 600; color: #1a1a1a; }
 .header-sub { font-size: 12px; color: #888; }
 .tab-bar { display: flex; border-bottom: 1px solid #e5e5e0; background: #fff; position: sticky; top: 0; z-index: 10; overflow-x: auto; }
 .tab { flex: 1; min-width: 82px; padding: 12px 4px; font-size: 12px; background: none; border: none; cursor: pointer; color: #888; font-weight: 400; border-bottom: 2px solid transparent; transition: all 0.15s; }
@@ -103,11 +120,11 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 <body>
 <div class="app">
   <div class="header">
-    <div class="header-icon">
-      <i class="ti ti-trophy" style="font-size:20px;color:#0F6E56;"></i>
-    </div>
+    <div class="header-icon" onclick="refreshPage()" title="Actualizar quiniela">
+  <img src="ball-worldcup.jpg" alt="Balón Mundial" class="header-ball">
+	</div>
     <div>
-      <div class="header-title">Quiniela Barth</div>
+      <div class="header-title" onclick="refreshPage()" style="cursor:pointer;">Quiniela Barth</div>
       <div class="header-sub">Mundial 2026</div>
     </div>
   </div>
@@ -1152,7 +1169,9 @@ function showTab(tab) {
   if (tab==='predecir') renderPredecir();
   if (tab==='admin') { renderAdminMatchSelect(); renderAdminGeneral(); document.getElementById('admin-match-detail').innerHTML=''; }
 }
-
+function refreshPage() {
+  window.location.reload();
+}
 function showToast(msg) {
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -1261,6 +1280,7 @@ async function deleteMatch(matchId) {
   ).innerHTML = '';
 }
 window.showTab = showTab;
+window.refreshPage = refreshPage;
 window.submitPred = submitPred;
 window.savePlayer = savePlayer;
 window.renderPredecir = renderPredecir;
