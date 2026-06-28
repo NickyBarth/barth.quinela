@@ -114,8 +114,8 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 
   <div class="tab-bar">
     <button class="tab active" onclick="showTab('ranking')">Ranking</button>
-    <button class="tab" onclick="showTab('partidos')">Partidos</button>
     <button class="tab" onclick="showTab('clasificacion')">Clasificación</button>
+    <button class="tab" onclick="showTab('partidos')">Partidos</button>
     <button class="tab" onclick="showTab('predecir')">Mis predicciones</button>
     <button class="tab" onclick="showTab('admin')">Admin</button>
   </div>
@@ -1145,7 +1145,7 @@ function showTab(tab) {
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
-  document.querySelectorAll('.tab')[['ranking','partidos','clasificacion','predecir','admin'].indexOf(tab)].classList.add('active');
+  document.querySelectorAll('.tab')[['ranking','clasificacion','partidos','predecir','admin'].indexOf(tab)].classList.add('active');
   if (tab==='ranking') renderRanking();
   if (tab==='partidos') renderPartidos();
   if (tab==='clasificacion') renderClasificacion();
@@ -1287,5 +1287,6 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
 
 
