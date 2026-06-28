@@ -1066,7 +1066,7 @@ function renderPredecir() {
           ${m.extraActive?`<div class="extra-section">
             <div class="extra-title">⭐ Puntos extra (opcional)</div>
             <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="number" min="1" max="120" id="em-${m.id}" placeholder="ej: 28"></div>
-            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland"></div>
+            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Equipo que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland"></div>
           </div>`:''}
           <button class="btn-primary" onclick="submitPred('${m.id}')">Guardar predicción</button>
         </div>`;
@@ -1127,7 +1127,7 @@ function renderAdminMatch() {
       <div class="extra-section">
         <div class="extra-title">Puntos extra</div>
         <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="text" id="adm-minuto" value="${m.extraMinuto||''}" placeholder="ej: 28"></div>
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anotó primero</label><input type="text" id="adm-jugador" value="${m.extraJugador||''}" placeholder="ej: Haaland"></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Equipo que anotó primero</label><input type="text" id="adm-jugador" value="${m.extraJugador||''}" placeholder="ej: Haaland"></div>
       </div>
     </div>
     <button class="btn-primary" onclick="saveAdminMatch('${matchId}')">Guardar resultado</button>
