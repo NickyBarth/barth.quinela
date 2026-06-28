@@ -412,6 +412,67 @@ function formatTeam(name) {
   return `${flagForTeam(clean)} ${clean}`;
 }
 
+
+const TEAM_ALIASES = {
+  'alemania':'alemania','germany':'alemania','ger':'alemania',
+  'paraguay':'paraguay','par':'paraguay',
+  'francia':'francia','france':'francia','fra':'francia',
+  'suecia':'suecia','sweden':'suecia','swe':'suecia',
+  'sudafrica':'sudafrica','south africa':'sudafrica','rsa':'sudafrica',
+  'canada':'canada','can':'canada',
+  'paises bajos':'paises bajos','netherlands':'paises bajos','holanda':'paises bajos','ned':'paises bajos',
+  'marruecos':'marruecos','morocco':'marruecos','mar':'marruecos',
+  'portugal':'portugal','por':'portugal',
+  'croacia':'croacia','croatia':'croacia','cro':'croacia',
+  'espana':'espana','spain':'espana','esp':'espana',
+  'austria':'austria','aut':'austria',
+  'estados unidos':'estados unidos','usa':'estados unidos','united states':'estados unidos','eeuu':'estados unidos','e e u u':'estados unidos',
+  'bosnia':'bosnia','bosnia y herzegovina':'bosnia','bosnia and herzegovina':'bosnia','bih':'bosnia',
+  'belgica':'belgica','belgium':'belgica','bel':'belgica',
+  'senegal':'senegal','sen':'senegal',
+  'brasil':'brasil','brazil':'brasil','bra':'brasil',
+  'japon':'japon','japan':'japon','jpn':'japon',
+  'costa de marfil':'costa de marfil','ivory coast':'costa de marfil','civ':'costa de marfil',
+  'noruega':'noruega','norway':'noruega','nor':'noruega',
+  'mexico':'mexico','mex':'mexico',
+  'ecuador':'ecuador','ecu':'ecuador',
+  'inglaterra':'inglaterra','england':'inglaterra','eng':'inglaterra',
+  'rd congo':'rd congo','dr congo':'rd congo','congo':'rd congo','cod':'rd congo',
+  'argentina':'argentina','arg':'argentina',
+  'cabo verde':'cabo verde','cape verde':'cabo verde','cpv':'cabo verde',
+  'australia':'australia','aus':'australia',
+  'egipto':'egipto','egypt':'egipto','egy':'egipto',
+  'suiza':'suiza','switzerland':'suiza','sui':'suiza',
+  'argelia':'argelia','algeria':'argelia','alg':'argelia','dza':'argelia',
+  'colombia':'colombia','col':'colombia',
+  'ghana':'ghana','gha':'ghana'
+};
+
+function canonicalTeamKey(name) {
+  const key = normalizeTeamName(name);
+  return TEAM_ALIASES[key] || key;
+}
+
+function matchupKey(teamA, teamB) {
+  return [canonicalTeamKey(teamA), canonicalTeamKey(teamB)].sort().join('|');
+}
+
+function expectedMatchupCode(teamA, teamB) {
+  const key = matchupKey(teamA, teamB);
+
+  for (const code in BRACKET_SLOTS) {
+    const slot = BRACKET_SLOTS[code];
+    if (slot.round !== 'r32') continue;
+
+    if (matchupKey(slot.teamA, slot.teamB) === key) {
+      return code;
+    }
+  }
+
+  return '';
+}
+
+
 function getMatchTeams(name) {
   const parts = cleanText(name).split(/\s+vs\s+/i);
   if (parts.length !== 2) return {a: cleanText(name), b: ''};
@@ -493,37 +554,31 @@ function findMatchByBracketCode(code) {
 
 function inferBracketCodeByTeams(match) {
   const teams = getMatchTeams(match.name);
-  const a = normalizeTeamName(teams.a);
-  const b = normalizeTeamName(teams.b);
-  if (!a || !b) return '';
-
-  for (const code in BRACKET_SLOTS) {
-    const slot = BRACKET_SLOTS[code];
-    if (slot.round !== 'r32') continue;
-    const sa = normalizeTeamName(slot.teamA);
-    const sb = normalizeTeamName(slot.teamB);
-    if ((a === sa && b === sb) || (a === sb && b === sa)) return code;
-  }
-  return '';
+  if (!teams.a || !teams.b) return '';
+  return expectedMatchupCode(teams.a, teams.b);
 }
 
 function inferBracketCodesForAll() {
   if (!state || !state.matches) return;
 
+  // Primero corrige siempre los códigos de Dieciseisavos si el cruce coincide con la llave oficial.
+  // Esto arregla casos donde, por ejemplo, Holanda vs Marruecos se había guardado por error como P77.
   state.matches.forEach(m => {
-    if (!m.bracketCode) {
-      const inferred = inferBracketCodeByTeams(m);
-      if (inferred) m.bracketCode = inferred;
+    const expected = inferBracketCodeByTeams(m);
+    if (expected) {
+      m.bracketCode = expected;
     }
   });
 
   const used = new Set(state.matches.map(m => bracketCode(m)).filter(Boolean));
   const phaseSlotCodes = {};
+
   Object.keys(BRACKET_SLOTS).forEach(code => {
     const slot = BRACKET_SLOTS[code];
     if (!phaseSlotCodes[slot.phase]) phaseSlotCodes[slot.phase] = [];
     phaseSlotCodes[slot.phase].push(code);
   });
+
   Object.values(phaseSlotCodes).forEach(codes => codes.sort((a,b) => BRACKET_SLOTS[a].order - BRACKET_SLOTS[b].order));
 
   ['dieciseisavos','octavos','cuartos','semifinal','final'].forEach(phaseKey => {
@@ -531,6 +586,7 @@ function inferBracketCodesForAll() {
     const phaseMatches = (state.matches || [])
       .filter(m => getMatchPhase(m).key === phaseKey && !bracketCode(m))
       .sort((a,b) => matchSortValue(a) - matchSortValue(b));
+
     phaseMatches.forEach((m, i) => {
       if (available[i]) {
         m.bracketCode = available[i];
@@ -1307,6 +1363,7 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
 
 
 
