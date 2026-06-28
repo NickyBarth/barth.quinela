@@ -13,8 +13,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .header-icon { width: 38px; height: 38px; border-radius: 50%; background: #E1F5EE; display: flex; align-items: center; justify-content: center; }
 .header-title { font-size: 17px; font-weight: 600; color: #1a1a1a; }
 .header-sub { font-size: 12px; color: #888; }
-.tab-bar { display: flex; border-bottom: 1px solid #e5e5e0; background: #fff; position: sticky; top: 0; z-index: 10; }
-.tab { flex: 1; padding: 12px 4px; font-size: 12px; background: none; border: none; cursor: pointer; color: #888; font-weight: 400; border-bottom: 2px solid transparent; transition: all 0.15s; }
+.tab-bar { display: flex; border-bottom: 1px solid #e5e5e0; background: #fff; position: sticky; top: 0; z-index: 10; overflow-x: auto; }
+.tab { flex: 1; min-width: 82px; padding: 12px 4px; font-size: 12px; background: none; border: none; cursor: pointer; color: #888; font-weight: 400; border-bottom: 2px solid transparent; transition: all 0.15s; }
 .tab.active { color: #1D9E75; font-weight: 600; border-bottom: 2px solid #1D9E75; }
 .section { padding: 1rem; display: none; }
 .section.active { display: block; }
@@ -72,6 +72,21 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 .match-filter-tab { flex: 1; padding: 10px 8px; border-radius: 10px; border: 1px solid #e5e5e0; background: #fff; color: #777; font-size: 13px; font-weight: 600; cursor: pointer; }
 .match-filter-tab.active { background: #1D9E75; border-color: #1D9E75; color: #fff; }
 
+
+.tab-bar::-webkit-scrollbar { display: none; }
+.phase-label { font-size: 12px; font-weight: 700; color: #0F6E56; letter-spacing: 0.04em; text-transform: uppercase; margin: 1.5rem 0 0.35rem; }
+.classification-note { font-size: 12px; color: #777; line-height: 1.45; margin-bottom: 1rem; }
+.classification-scroll { overflow-x: auto; padding-bottom: 0.75rem; }
+.bracket-board { display: flex; gap: 10px; align-items: flex-start; min-width: 940px; }
+.bracket-column { flex: 0 0 178px; }
+.bracket-title { font-size: 12px; font-weight: 700; color: #0F6E56; text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; }
+.bracket-card { background: #fff; border: 1px solid #e5e5e0; border-radius: 12px; padding: 0.75rem; margin-bottom: 0.75rem; min-height: 96px; }
+.bracket-date { font-size: 10px; color: #999; margin-bottom: 0.35rem; }
+.bracket-match { font-size: 12px; font-weight: 700; color: #1a1a1a; line-height: 1.35; }
+.bracket-result { font-size: 12px; color: #1D9E75; font-weight: 700; margin-top: 0.35rem; }
+.bracket-winner { display: inline-block; margin-top: 0.45rem; background: #E1F5EE; color: #0F6E56; border-radius: 20px; padding: 3px 9px; font-size: 11px; font-weight: 700; }
+.bracket-empty { background: #f8f8f5; border: 1px dashed #ddd; border-radius: 12px; padding: 0.9rem; color: #aaa; font-size: 12px; text-align: center; }
+
 </style>
 </head>
 <body>
@@ -89,6 +104,7 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
   <div class="tab-bar">
     <button class="tab active" onclick="showTab('ranking')">Ranking</button>
     <button class="tab" onclick="showTab('partidos')">Partidos</button>
+    <button class="tab" onclick="showTab('clasificacion')">Clasificación</button>
     <button class="tab" onclick="showTab('predecir')">Mis predicciones</button>
     <button class="tab" onclick="showTab('admin')">Admin</button>
   </div>
@@ -99,6 +115,14 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 
   <div id="tab-partidos" class="section">
     <div id="partidos-list"></div>
+  </div>
+
+  <div id="tab-clasificacion" class="section">
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:0.5rem;color:#1a1a1a;">Clasificación</div>
+      <div class="classification-note">La llave se llena automáticamente con los partidos agregados según la fecha y se actualiza con los resultados guardados en Admin. Si algo queda mal, puedes corregir nombre o fecha del partido desde Admin.</div>
+    </div>
+    <div id="clasificacion-list"></div>
   </div>
 
   <div id="tab-predecir" class="section">
@@ -277,7 +301,7 @@ function matchSortValue(match) {
 
 function sortedMatches(matches) {
   return (matches || []).slice().sort((a, b) => {
-    const dateDiff = matchSortValue(a) - matchSortValue(b);
+    const dateDiff = phaseOrderValue(a) - phaseOrderValue(b);
     if (dateDiff !== 0) return dateDiff;
 
     const aId = cleanText(a.id).replace(/^m/, '');
@@ -290,6 +314,42 @@ function sortedMatches(matches) {
   });
 }
 
+
+
+function getMatchPhase(match) {
+  const d = parseMatchDate(match.date);
+  const value = d.month * 100 + d.day;
+
+  if (value <= 627) return {key:'grupos', label:'Fase de Grupos', order:1};
+  if (value >= 629 && value <= 703) return {key:'dieciseisavos', label:'Dieciseisavos de Final', order:2};
+  if (value >= 704 && value <= 707) return {key:'octavos', label:'Octavos de Final', order:3};
+  if (value >= 709 && value <= 711) return {key:'cuartos', label:'Cuartos de Final', order:4};
+  if (value >= 714 && value <= 715) return {key:'semifinal', label:'Semifinal', order:5};
+  if (value >= 718 && value <= 719) return {key:'final', label: value === 718 ? 'Tercer Puesto' : 'Final', order:6};
+
+  return {key:'otros', label:'Otros partidos', order:99};
+}
+
+function getMatchTeams(name) {
+  const parts = cleanText(name).split(/\s+vs\s+/i);
+  if (parts.length !== 2) return {a: cleanText(name), b: ''};
+  return {a: cleanText(parts[0]), b: cleanText(parts[1])};
+}
+
+function getMatchWinner(match) {
+  if (!match || !match.done || !match.result) return '';
+  const score = parseScore(match.result);
+  const teams = getMatchTeams(match.name);
+  if (!score || !teams.a || !teams.b) return '';
+
+  if (score.a > score.b) return teams.a;
+  if (score.b > score.a) return teams.b;
+  return 'Empate';
+}
+
+function phaseOrderValue(match) {
+  return getMatchPhase(match).order * 10000 + matchSortValue(match);
+}
 
 function parseScore(score) {
   const parts = cleanText(score).split('-').map(x => parseInt(x, 10));
@@ -406,6 +466,7 @@ function listenRealtime() {
 
       renderRanking();
       renderPartidos();
+      renderClasificacion();
       renderPredecir();
     }
   });
@@ -437,6 +498,7 @@ async function loadState() {
 
   renderRanking();
   renderPartidos();
+  renderClasificacion();
 }
 
 
@@ -539,6 +601,7 @@ function renderPartidos() {
     <button class="match-filter-tab ${partidosView === 'finalizados' ? 'active' : ''}" onclick="setPartidosView('finalizados')">Finalizados (${doneCount})</button>
   </div>`;
 
+  let lastPhase = '';
   let lastDate = '';
 
   if (!state.matches.length) {
@@ -558,6 +621,12 @@ function renderPartidos() {
   }
 
   visibleMatches.forEach(m => {
+    const phase = getMatchPhase(m);
+    if (phase.label !== lastPhase) {
+      html += `<div class="phase-label">${phase.label}</div>`;
+      lastPhase = phase.label;
+      lastDate = '';
+    }
     if (m.date !== lastDate) {
       html += `<div class="group-label">${m.date}</div>`;
       lastDate = m.date;
@@ -603,6 +672,60 @@ function renderPartidos() {
   document.getElementById('partidos-list').innerHTML = html;
 }
 
+
+function renderClasificacion() {
+  ensureStateShape();
+
+  const bracketPhases = [
+    {key:'dieciseisavos', label:'Dieciseisavos'},
+    {key:'octavos', label:'Octavos'},
+    {key:'cuartos', label:'Cuartos'},
+    {key:'semifinal', label:'Semifinal'},
+    {key:'final', label:'Final'}
+  ];
+
+  const knockoutMatches = sortedMatches(state.matches).filter(m => {
+    const key = getMatchPhase(m).key;
+    return ['dieciseisavos','octavos','cuartos','semifinal','final'].includes(key);
+  });
+
+  if (!knockoutMatches.length) {
+    document.getElementById('clasificacion-list').innerHTML = '<div class="empty-state">Aún no hay partidos de eliminatorias agregados.</div>';
+    return;
+  }
+
+  let html = '<div class="classification-scroll"><div class="bracket-board">';
+
+  bracketPhases.forEach(phase => {
+    const matches = knockoutMatches.filter(m => getMatchPhase(m).key === phase.key);
+
+    html += `<div class="bracket-column"><div class="bracket-title">${phase.label}</div>`;
+
+    if (!matches.length) {
+      html += `<div class="bracket-empty">Pendiente</div>`;
+    } else {
+      matches.forEach(m => {
+        const winner = getMatchWinner(m);
+        const phaseInfo = getMatchPhase(m);
+        const finalLabel = phase.key === 'final' && phaseInfo.label === 'Tercer Puesto' ? 'Tercer puesto' : '';
+
+        html += `<div class="bracket-card">
+          <div class="bracket-date">${cleanText(m.date)}${finalLabel ? ' · ' + finalLabel : ''}</div>
+          <div class="bracket-match">${cleanText(m.name)}</div>
+          ${m.done && m.result ? `<div class="bracket-result">${cleanText(m.result)}</div>` : `<div class="bracket-result" style="color:#aaa;">Pendiente</div>`}
+          ${winner ? `<div class="bracket-winner">Clasifica: ${winner}</div>` : ''}
+        </div>`;
+      });
+    }
+
+    html += '</div>';
+  });
+
+  html += '</div></div>';
+
+  document.getElementById('clasificacion-list').innerHTML = html;
+}
+
 function renderPredecir() {
   currentPlayer = document.getElementById('player-select').value;
   if (!currentPlayer) { document.getElementById('predecir-list').innerHTML = '<div class="empty-state">Selecciona tu nombre arriba</div>'; return; }
@@ -612,8 +735,11 @@ function renderPredecir() {
   let html = buildGeneralPredictionsBlock(currentPlayer);
   if (!pending.length) { html += '<div class="empty-state">No hay partidos pendientes por predecir</div>'; }
   else {
+    let lastPhase = '';
     let lastDate = '';
     pending.forEach(m => {
+      const phase = getMatchPhase(m);
+      if (phase.label !== lastPhase) { html+=`<div class="phase-label">${phase.label}</div>`; lastPhase=phase.label; lastDate=''; }
       if (m.date!==lastDate) { html+=`<div class="group-label">${m.date}</div>`; lastDate=m.date; }
       const already = myPreds[m.id];
       if (already) {
@@ -681,6 +807,9 @@ function renderAdminMatch() {
   const m = state.matches.find(x=>x.id===matchId);
   el.innerHTML = `<div style="margin-top:1rem;">
     <div style="font-size:13px;font-weight:600;margin-bottom:0.75rem;color:#1a1a1a;">${m.name}</div>
+    <div class="form-group"><label class="form-label">Nombre del partido</label><input type="text" id="adm-name" value="${m.name||''}" placeholder="Ej: Brasil vs España"></div>
+    <div class="form-group"><label class="form-label">Fecha</label><input type="text" id="adm-date" value="${m.date||''}" placeholder="Ej: 29 Jun"></div>
+    <button class="btn-primary" style="background:#185FA5;margin-bottom:0.75rem;" onclick="saveAdminMatchInfo('${matchId}')">Guardar nombre / fecha</button>
     <div class="form-group"><label class="form-label">Resultado final</label>
       <div class="form-row">
         <input type="number" min="0" max="20" class="score-input" id="adm-a" value="${m.result?m.result.split('-')[0]:''}" placeholder="0">
@@ -713,6 +842,34 @@ function toggleAdminExtra() {
   document.getElementById('adm-extra-fields').style.display = document.getElementById('adm-extra').checked?'':'none';
 }
 
+
+async function saveAdminMatchInfo(matchId) {
+  const m = state.matches.find(x=>x.id===matchId);
+  if (!m) return;
+
+  const newName = cleanText(document.getElementById('adm-name')?.value);
+  const newDate = cleanText(document.getElementById('adm-date')?.value);
+
+  if (!newName || !newDate) {
+    showToast('Ingresa nombre y fecha');
+    return;
+  }
+
+  m.name = newName;
+  m.date = newDate;
+  state.matches = sortedMatches(state.matches);
+
+  await saveState();
+  showToast('Partido actualizado');
+  renderPartidos();
+  renderPredecir();
+  renderClasificacion();
+  renderAdminMatchSelect();
+
+  document.getElementById('admin-match-select').value = matchId;
+  renderAdminMatch();
+}
+
 function saveAdminMatch(matchId) {
   const a = document.getElementById('adm-a').value;
   const b = document.getElementById('adm-b').value;
@@ -722,9 +879,10 @@ function saveAdminMatch(matchId) {
   m.extraActive=document.getElementById('adm-extra').checked;
   m.extraMinuto=document.getElementById('adm-minuto')?document.getElementById('adm-minuto').value.trim():'';
   m.extraJugador=document.getElementById('adm-jugador')?document.getElementById('adm-jugador').value.trim():'';
+  state.matches = sortedMatches(state.matches);
   saveState();
   showToast('¡Resultado guardado!');
-  renderRanking(); renderPartidos(); renderAdminMatchSelect();
+  renderRanking(); renderPartidos(); renderClasificacion(); renderAdminMatchSelect();
 }
 
 function addMatch() {
@@ -737,7 +895,7 @@ function addMatch() {
   document.getElementById('new-match-name').value='';
   document.getElementById('new-match-date').value='';
   showToast('¡Partido agregado!');
-  renderPartidos(); renderPredecir(); renderAdminMatchSelect();
+  renderPartidos(); renderPredecir(); renderClasificacion(); renderAdminMatchSelect();
 }
 
 function setPartidosView(view) {
@@ -749,9 +907,10 @@ function showTab(tab) {
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
-  document.querySelectorAll('.tab')[['ranking','partidos','predecir','admin'].indexOf(tab)].classList.add('active');
+  document.querySelectorAll('.tab')[['ranking','partidos','clasificacion','predecir','admin'].indexOf(tab)].classList.add('active');
   if (tab==='ranking') renderRanking();
   if (tab==='partidos') renderPartidos();
+  if (tab==='clasificacion') renderClasificacion();
   if (tab==='predecir') renderPredecir();
   if (tab==='admin') { renderAdminMatchSelect(); renderAdminGeneral(); document.getElementById('admin-match-detail').innerHTML=''; }
 }
@@ -856,6 +1015,7 @@ async function deleteMatch(matchId) {
   renderPartidos();
   renderRanking();
   renderPredecir();
+  renderClasificacion();
   renderAdminMatchSelect();
 
   document.getElementById(
@@ -869,21 +1029,24 @@ window.renderPredecir = renderPredecir;
 window.renderAdminMatch = renderAdminMatch;
 window.toggleAdminExtra = toggleAdminExtra;
 window.saveAdminMatch = saveAdminMatch;
+window.saveAdminMatchInfo = saveAdminMatchInfo;
 window.addMatch = addMatch;
 window.deleteMatch = deleteMatch;
 window.setPartidosView = setPartidosView;
 window.saveGeneralPredictions = saveGeneralPredictions;
 window.saveAdminGeneral = saveAdminGeneral;
+window.renderClasificacion = renderClasificacion;
 
 loadState().then(() => {
   listenRealtime();
   renderPredecir();
+  renderClasificacion();
   renderAdminMatchSelect();
   renderAdminGeneral();
 });
 
 </script>
-  <!-- force deploy -->
 </body>
 </html>
+
 
