@@ -325,11 +325,15 @@ function sortedMatches(matches) {
     const phaseDiff = getMatchPhase(a).order - getMatchPhase(b).order;
     if (phaseDiff !== 0) return phaseDiff;
 
-    const bracketDiff = getBracketOrder(a) - getBracketOrder(b);
-    if (bracketDiff !== 0 && (getBracketOrder(a) !== 999 || getBracketOrder(b) !== 999)) return bracketDiff;
-
+    // Primero ordena por fecha real dentro de cada fase.
+    // Antes el código de llave P74/P77/P73 estaba ganando sobre la fecha,
+    // por eso el partido del 28 Jun podía aparecer debajo de los del 29/30.
     const dateDiff = matchSortValue(a) - matchSortValue(b);
     if (dateDiff !== 0) return dateDiff;
+
+    // Si dos partidos son el mismo día, usa el código de llave como desempate.
+    const bracketDiff = getBracketOrder(a) - getBracketOrder(b);
+    if (bracketDiff !== 0 && (getBracketOrder(a) !== 999 || getBracketOrder(b) !== 999)) return bracketDiff;
 
     const aId = cleanText(a.id).replace(/^m/, '');
     const bId = cleanText(b.id).replace(/^m/, '');
