@@ -180,6 +180,7 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
           <option value="Francisco">Francisco</option>
           <option value="Nicole">Nicole</option>
           <option value="Steven">Steven</option>
+          <option value="Anghel y Daniel">Anghel y Daniel</option>
         </select>
       </div>
     </div>
@@ -268,10 +269,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 
-const PLAYERS = ['Faride','Francisco','Nicole','Steven'];
-const COLORS = {Faride:'#534AB7',Francisco:'#D85A30',Nicole:'#1D9E75',Steven:'#185FA5'};
-const INITIALS = {Faride:'FA',Francisco:'FR',Nicole:'NI',Steven:'ST'};
-const BG = {Faride:'#EEEDFE',Francisco:'#FAECE7',Nicole:'#E1F5EE',Steven:'#E6F1FB'};
+const PLAYERS = ['Faride','Francisco','Nicole','Steven','Anghel y Daniel'];
+const COLORS = {Faride:'#534AB7',Francisco:'#D85A30',Nicole:'#1D9E75',Steven:'#185FA5','Anghel y Daniel':'#8A5A00'};
+const INITIALS = {Faride:'FA',Francisco:'FR',Nicole:'NI',Steven:'ST','Anghel y Daniel':'AD'};
+const BG = {Faride:'#EEEDFE',Francisco:'#FAECE7',Nicole:'#E1F5EE',Steven:'#E6F1FB','Anghel y Daniel':'#FFF3CD'};
 
 
 const SEED = {
@@ -904,7 +905,8 @@ function savePlayer() {
 
 function calcPoints() {
   ensureStateShape();
-  const pts = {Faride:0,Francisco:0,Nicole:0,Steven:0};
+  const pts = {};
+  PLAYERS.forEach(p => pts[p] = 0);
 
   state.matches.forEach(m => {
     if (!m.done || !m.result) return;
@@ -938,12 +940,12 @@ function renderRanking() {
   ensureStateShape();
   const pts = calcPoints();
   const sorted = PLAYERS.slice().sort((a,b) => pts[b]-pts[a]);
-  const medals = ['🥇','🥈','🥉','4️⃣'];
+  const medals = ['🥇','🥈','🥉'];
   let html = '';
 
   sorted.forEach((p,i) => {
     html += `<div class="ranking-item">
-      <div class="rank-num">${medals[i]}</div>
+      <div class="rank-num">${medals[i] || (i+1)}</div>
       <div class="avatar" style="background:${BG[p]};color:${COLORS[p]};">${INITIALS[p]}</div>
       <div class="rank-name">${p}${buildGeneralSummary(p)}</div>
       <div style="text-align:right;">
@@ -966,7 +968,7 @@ function renderRanking() {
       ✅ Ganador del partido / clasificado por penales: +1 pt<br>
       ✅ Si predices empate y realmente hay penales: +1 pt<br>
       ✅ Ganador por penales correcto: +1 pt <span style="color:#888;">(solo si tu marcador fue empate)</span><br>
-      ✅ Primer goleador: +1 pt<br>
+      ✅ Equipo que anota primero: +1 pt<br>
       ✅ Minuto del primer gol: +1 pt <span style="color:#888;">(ventana ±1 min)</span><br><br>
       <b>Predicciones Generales</b><br>
       🏆 Campeón: +10 pts<br>
@@ -1252,7 +1254,7 @@ function renderPredictionForm(m, pred=null, mode='new') {
     ${m.extraActive?`<div class="extra-section">
       <div class="extra-title">⭐ Puntos extra (opcional)</div>
       <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="number" min="1" max="120" id="em-${m.id}" placeholder="ej: 28" value="${cleanText(pred?.minuto || '')}"></div>
-      <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland" value="${cleanText(pred?.jugador || '')}"></div>
+      <div class="form-group" style="margin-bottom:0;"><label class="form-label">Equipo que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Brasil" value="${cleanText(pred?.jugador || '')}"></div>
     </div>`:''}
 
     ${canHavePenalties(m)?`<div class="penalty-section" id="penalty-section-${m.id}" style="${showPenalty ? '' : 'display:none;'}">
@@ -1442,7 +1444,7 @@ function renderAdminMatch() {
       <div class="extra-section">
         <div class="extra-title">Puntos extra</div>
         <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="text" id="adm-minuto" value="${m.extraMinuto||''}" placeholder="ej: 28"></div>
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anotó primero</label><input type="text" id="adm-jugador" value="${m.extraJugador||''}" placeholder="ej: Haaland"></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Equipo que anotó primero</label><input type="text" id="adm-jugador" value="${m.extraJugador||''}" placeholder="ej: Brasil"></div>
       </div>
     </div>
     <button class="btn-primary" onclick="saveAdminMatch('${matchId}')">Guardar resultado</button>
@@ -1733,6 +1735,10 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
+
+
+
 
 
 
