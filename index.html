@@ -75,6 +75,11 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 .penalty-section { margin-top:0.75rem; padding:0.75rem; background:#fff8e6; border-radius:10px; border:1px solid #f1dfad; }
 .penalty-title { font-size:12px; font-weight:700; color:#8A5A00; margin-bottom:0.5rem; }
 
+.second-chance-section { margin-top:0.75rem; padding:0.75rem; background:#f0f6ff; border-radius:10px; border:1px solid #cfe0f5; }
+.second-chance-title { font-size:12px; font-weight:800; color:#185FA5; margin-bottom:0.35rem; }
+.second-chance-note { font-size:11px; color:#185FA5; line-height:1.35; }
+
+
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1D9E75; color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
 .toast.show { opacity: 1; }
 .empty-state { text-align: center; padding: 2rem 1rem; color: #aaa; font-size: 14px; }
@@ -761,6 +766,8 @@ function ensureStateShape() {
   state.matches.forEach(m => {
     if (m.penalties === undefined) m.penalties = false;
     if (m.penaltyWinner === undefined) m.penaltyWinner = '';
+    if (m.secondChanceOpen === undefined) m.secondChanceOpen = false;
+    if (!Array.isArray(m.secondChanceEligible)) m.secondChanceEligible = [];
   });
   if (!state.predictions) state.predictions = {};
   PLAYERS.forEach(p => {
@@ -1172,68 +1179,149 @@ function renderClasificacion() {
   document.getElementById('clasificacion-list').innerHTML = html;
 }
 
+
+function playersWithPrediction(match) {
+  if (!match || !state || !state.predictions) return [];
+  return PLAYERS.filter(p => !!((state.predictions[p] || {})[match.id]));
+}
+
+function playersEligibleForNewSecondChance(match) {
+  if (!match || !state || !state.predictions) return [];
+  return PLAYERS.filter(p => {
+    const pred = (state.predictions[p] || {})[match.id];
+    return !!(pred && !pred.secondChanceUsed);
+  });
+}
+
+function canUseSecondChance(player, match) {
+  if (!player || !match || match.done || !match.secondChanceOpen) return false;
+
+  const pred = ((state.predictions || {})[player] || {})[match.id];
+  if (!pred || pred.secondChanceUsed) return false;
+
+  return (match.secondChanceEligible || []).includes(player);
+}
+
+function secondChanceAdminText(match) {
+  const eligible = match.secondChanceOpen ? (match.secondChanceEligible || []) : playersEligibleForNewSecondChance(match);
+  const used = PLAYERS.filter(p => {
+    const pred = ((state.predictions || {})[p] || {})[match.id];
+    return !!(pred && pred.secondChanceUsed);
+  });
+
+  let text = '';
+  if (match.secondChanceOpen) {
+    text += eligible.length ? `Pueden editar una vez: ${eligible.join(', ')}` : 'No hay jugadores elegibles para editar.';
+  } else {
+    text += eligible.length ? `Si abres ahora, podrán editar: ${eligible.join(', ')}` : 'Si abres ahora, no hay jugadores elegibles todavía.';
+  }
+
+  if (used.length) text += `<br>Ya usaron su segunda oportunidad: ${used.join(', ')}`;
+  return text;
+}
+
+function renderPredictionForm(m, pred=null, mode='new') {
+  const score = pred ? parseScore(pred.score) : null;
+  const scoreA = score ? score.a : '';
+  const scoreB = score ? score.b : '';
+  const isEdit = mode === 'secondChance';
+  const teams = getMatchTeams(m.name);
+  const showPenalty = canHavePenalties(m) && score && score.a === score.b;
+  const penaltyWinner = cleanText(pred?.penaltyWinner || '');
+
+  return `<div class="match-card">
+    <div class="match-header">
+      <div class="match-title">${m.name}</div>
+      ${isEdit ? '<span class="match-status status-upcoming">2da oportunidad</span>' : ''}
+    </div>
+
+    ${isEdit ? `<div class="second-chance-section">
+      <div class="second-chance-title">🔓 Segunda oportunidad abierta</div>
+      <div class="second-chance-note">Puedes cambiar esta predicción una sola vez mientras Admin la mantenga abierta.</div>
+    </div>` : ''}
+
+    <div class="form-group" style="margin-top:0.75rem;">
+      <label class="form-label">Marcador</label>
+      <div class="form-row">
+        <input type="number" min="0" max="20" class="score-input" id="sa-${m.id}" placeholder="0" value="${scoreA}" oninput="togglePenaltyPred('${m.id}')">
+        <span class="score-sep">—</span>
+        <input type="number" min="0" max="20" class="score-input" id="sb-${m.id}" placeholder="0" value="${scoreB}" oninput="togglePenaltyPred('${m.id}')">
+      </div>
+    </div>
+
+    ${m.extraActive?`<div class="extra-section">
+      <div class="extra-title">⭐ Puntos extra (opcional)</div>
+      <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="number" min="1" max="120" id="em-${m.id}" placeholder="ej: 28" value="${cleanText(pred?.minuto || '')}"></div>
+      <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland" value="${cleanText(pred?.jugador || '')}"></div>
+    </div>`:''}
+
+    ${canHavePenalties(m)?`<div class="penalty-section" id="penalty-section-${m.id}" style="${showPenalty ? '' : 'display:none;'}">
+      <div class="penalty-title">🥅 Ganador por penales</div>
+      <div style="font-size:11px;color:#8A5A00;line-height:1.35;margin-bottom:0.5rem;">
+        Como pusiste empate, elige quién clasifica por penales.
+      </div>
+      <label class="form-label">Gana por penales:</label>
+      <select id="penwin-${m.id}">
+        <option value="">Selecciona ganador</option>
+        <option value="A" ${penaltyWinner === 'A' ? 'selected' : ''}>${teams.a}</option>
+        <option value="B" ${penaltyWinner === 'B' ? 'selected' : ''}>${teams.b}</option>
+      </select>
+    </div>`:''}
+
+    <button class="btn-primary" onclick="submitPred('${m.id}', ${isEdit ? 'true' : 'false'})">${isEdit ? 'Guardar cambio único' : 'Guardar predicción'}</button>
+  </div>`;
+}
+
+
 function renderPredecir() {
   currentPlayer = document.getElementById('player-select').value;
   if (!currentPlayer) { document.getElementById('predecir-list').innerHTML = '<div class="empty-state">Selecciona tu nombre arriba</div>'; return; }
   ensureStateShape();
+
   const myPreds = state.predictions[currentPlayer]||{};
   const pending = sortedMatches(state.matches).filter(m=>!m.done);
   let html = buildGeneralPredictionsBlock(currentPlayer);
-  if (!pending.length) { html += '<div class="empty-state">No hay partidos pendientes por predecir</div>'; }
-  else {
+
+  if (!pending.length) {
+    html += '<div class="empty-state">No hay partidos pendientes por predecir</div>';
+  } else {
     let lastPhase = '';
     let lastDate = '';
+
     pending.forEach(m => {
       const phase = getMatchPhase(m);
       if (phase.label !== lastPhase) { html+=`<div class="phase-label">${phase.label}</div>`; lastPhase=phase.label; lastDate=''; }
       if (m.date!==lastDate) { html+=`<div class="group-label">${m.date}</div>`; lastDate=m.date; }
+
       const already = myPreds[m.id];
+
       if (already) {
-        let extraHtml = '';
-        if (already.minuto) extraHtml += `<span class="tag tag-blue">⏱ min ${already.minuto}</span>`;
-        if (already.jugador) extraHtml += `<span class="tag tag-blue">⚽ ${already.jugador}</span>`;
-        if (already.penaltyWinner) extraHtml += `<span class="tag tag-penalty">🥅 Gana por penales: ${penaltyWinnerNameFromValue(m, already.penaltyWinner)}</span>`;
-        html += `<div class="match-card">
-          <div class="match-header"><div class="match-title">${m.name}</div><span class="match-status status-done">Guardado ✓</span></div>
-          <div style="margin-top:0.5rem;"><span class="tag tag-green" style="font-size:14px;padding:5px 14px;">${already.score}</span>${extraHtml}</div>
-          <div style="font-size:11px;color:#bbb;margin-top:8px;">Ya no puedes editar tu predicción</div>
-        </div>`;
+        if (canUseSecondChance(currentPlayer, m)) {
+          html += renderPredictionForm(m, already, 'secondChance');
+        } else {
+          let extraHtml = '';
+          if (already.minuto) extraHtml += `<span class="tag tag-blue">⏱ min ${already.minuto}</span>`;
+          if (already.jugador) extraHtml += `<span class="tag tag-blue">⚽ ${already.jugador}</span>`;
+          if (already.penaltyWinner) extraHtml += `<span class="tag tag-penalty">🥅 Gana por penales: ${penaltyWinnerNameFromValue(m, already.penaltyWinner)}</span>`;
+
+          const lockText = already.secondChanceUsed
+            ? 'Ya usaste tu segunda oportunidad. Predicción bloqueada.'
+            : 'Ya no puedes editar tu predicción';
+
+          html += `<div class="match-card">
+            <div class="match-header"><div class="match-title">${m.name}</div><span class="match-status status-done">Guardado ✓</span></div>
+            <div style="margin-top:0.5rem;"><span class="tag tag-green" style="font-size:14px;padding:5px 14px;">${already.score}</span>${extraHtml}</div>
+            <div style="font-size:11px;color:#bbb;margin-top:8px;">${lockText}</div>
+          </div>`;
+        }
       } else {
-        html += `<div class="match-card">
-          <div class="match-header"><div class="match-title">${m.name}</div></div>
-          <div class="form-group" style="margin-top:0.75rem;">
-            <label class="form-label">Marcador</label>
-            <div class="form-row">
-              <input type="number" min="0" max="20" class="score-input" id="sa-${m.id}" placeholder="0" oninput="togglePenaltyPred(\'${m.id}\')">
-              <span class="score-sep">—</span>
-              <input type="number" min="0" max="20" class="score-input" id="sb-${m.id}" placeholder="0" oninput="togglePenaltyPred(\'${m.id}\')">
-            </div>
-          </div>
-          ${m.extraActive?`<div class="extra-section">
-            <div class="extra-title">⭐ Puntos extra (opcional)</div>
-            <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="number" min="1" max="120" id="em-${m.id}" placeholder="ej: 28"></div>
-            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland"></div>
-          </div>`:''}
-          ${canHavePenalties(m)?`<div class="penalty-section" id="penalty-section-${m.id}" style="display:none;">
-            <div class="penalty-title">🥅 Ganador por penales</div>
-            <div style="font-size:11px;color:#8A5A00;line-height:1.35;margin-bottom:0.5rem;">
-              Como pusiste empate, elige quién clasifica por penales.
-            </div>
-            <label class="form-label">Gana por penales:</label>
-            <select id="penwin-${m.id}">
-              <option value="">Selecciona ganador</option>
-              <option value="A">${getMatchTeams(m.name).a}</option>
-              <option value="B">${getMatchTeams(m.name).b}</option>
-            </select>
-          </div>`:''}
-          <button class="btn-primary" onclick="submitPred('${m.id}')">Guardar predicción</button>
-        </div>`;
+        html += renderPredictionForm(m, null, 'new');
       }
     });
   }
+
   document.getElementById('predecir-list').innerHTML = html;
 }
-
 
 function togglePenaltyPred(matchId) {
   const a = document.getElementById('sa-'+matchId);
@@ -1253,7 +1341,7 @@ function togglePenaltyPred(matchId) {
   }
 }
 
-function submitPred(matchId) {
+function submitPred(matchId, isSecondChance=false) {
   const a = document.getElementById('sa-'+matchId);
   const b = document.getElementById('sb-'+matchId);
   if (!a||!b||a.value===''||b.value==='') { showToast('Ingresa el marcador completo'); return; }
@@ -1264,15 +1352,30 @@ function submitPred(matchId) {
   const penWinEl = document.getElementById('penwin-'+matchId);
   const penaltyWinner = canHavePenalties(match) && isDrawScore(score) ? cleanText(penWinEl ? penWinEl.value : '') : '';
 
+  if (isSecondChance && !canUseSecondChance(currentPlayer, match)) {
+    showToast('Esta segunda oportunidad ya no está disponible');
+    return;
+  }
+
   if (canHavePenalties(match) && isDrawScore(score) && !penaltyWinner) {
     showToast('Si predices empate, selecciona quién gana por penales');
     return;
   }
 
   if (!state.predictions[currentPlayer]) state.predictions[currentPlayer]={};
-  state.predictions[currentPlayer][matchId] = {score, minuto:minEl?minEl.value.trim():'', jugador:jugEl?jugEl.value.trim():'', penalties:!!(canHavePenalties(match) && isDrawScore(score)), penaltyWinner};
+
+  const previous = state.predictions[currentPlayer][matchId] || {};
+  state.predictions[currentPlayer][matchId] = {
+    score,
+    minuto:minEl?minEl.value.trim():'',
+    jugador:jugEl?jugEl.value.trim():'',
+    penalties:!!(canHavePenalties(match) && isDrawScore(score)),
+    penaltyWinner,
+    secondChanceUsed: isSecondChance ? true : !!previous.secondChanceUsed
+  };
+
   saveState();
-  showToast('¡Predicción guardada!');
+  showToast(isSecondChance ? 'Cambio guardado. Segunda oportunidad usada.' : '¡Predicción guardada!');
   renderPredecir(); renderPartidos(); renderRanking();
 }
 
@@ -1298,6 +1401,17 @@ function renderAdminMatch() {
     <div class="form-group"><label class="form-label">Fecha</label><input type="text" id="adm-date" value="${m.date||''}" placeholder="Ej: 29 Jun"></div>
     <div class="form-group"><label class="form-label">Código de llave</label><input type="text" id="adm-bracket-code" value="${m.bracketCode||''}" placeholder="Ej: P74"><div style="font-size:11px;color:#999;margin-top:5px;">Usa P74, P75, P89, P104, etc. para ubicar el partido en la llave.</div></div>
     <button class="btn-primary" style="background:#185FA5;margin-bottom:0.75rem;" onclick="saveAdminMatchInfo('${matchId}')">Guardar nombre / fecha / código</button>
+    <div class="second-chance-section" style="margin-bottom:0.75rem;">
+      <div class="second-chance-title">🔓 Segunda oportunidad de predicción</div>
+      <div class="form-group" style="margin-bottom:0.5rem;"><label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="adm-second-chance" ${m.secondChanceOpen?'checked':''}>
+        <span>Abrir edición única para este partido</span>
+      </label></div>
+      <div class="second-chance-note">${secondChanceAdminText(m)}</div>
+      <button class="btn-primary" style="background:#185FA5;margin-top:0.75rem;" onclick="saveSecondChance('${matchId}')">
+        ${m.secondChanceOpen ? 'Actualizar / bloquear segunda oportunidad' : 'Abrir segunda oportunidad'}
+      </button>
+    </div>
     <div class="form-group"><label class="form-label">Resultado final</label>
       <div class="form-row">
         <input type="number" min="0" max="20" class="score-input" id="adm-a" value="${m.result?m.result.split('-')[0]:''}" placeholder="0">
@@ -1340,6 +1454,35 @@ function renderAdminMatch() {
 </button>
   </div>`;
 }
+
+
+async function saveSecondChance(matchId) {
+  const m = state.matches.find(x=>x.id===matchId);
+  if (!m) return;
+
+  const checkbox = document.getElementById('adm-second-chance');
+  const willOpen = !!(checkbox && checkbox.checked);
+  const wasOpen = !!m.secondChanceOpen;
+
+  if (willOpen && m.done) {
+    showToast('No puedes abrir cambios para un partido finalizado');
+    checkbox.checked = false;
+    return;
+  }
+
+  if (willOpen && !wasOpen) {
+    m.secondChanceEligible = playersEligibleForNewSecondChance(m);
+  }
+
+  m.secondChanceOpen = willOpen;
+
+  await saveState();
+
+  showToast(willOpen ? 'Segunda oportunidad abierta' : 'Segunda oportunidad bloqueada');
+  renderPredecir();
+  renderAdminMatch();
+}
+
 
 function toggleAdminExtra() {
   document.getElementById('adm-extra-fields').style.display = document.getElementById('adm-extra').checked?'':'none';
@@ -1570,6 +1713,7 @@ window.toggleAdminExtra = toggleAdminExtra;
 window.toggleAdminPenalties = toggleAdminPenalties;
 window.saveAdminMatch = saveAdminMatch;
 window.saveAdminMatchInfo = saveAdminMatchInfo;
+window.saveSecondChance = saveSecondChance;
 window.addMatch = addMatch;
 window.deleteMatch = deleteMatch;
 window.setPartidosView = setPartidosView;
@@ -1589,6 +1733,7 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
 
 
 
