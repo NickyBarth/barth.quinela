@@ -703,6 +703,28 @@ function penaltyTextFromValue(match, value) {
   return winner ? `Penales: ${winner}` : '';
 }
 
+function penaltyWentHit(pred, match) {
+  return !!(
+    pred &&
+    match &&
+    match.done &&
+    match.penalties &&
+    match.penaltyWinner &&
+    pred.penalties &&
+    isDrawScore(pred.score)
+  );
+}
+
+function penaltyWinnerHit(pred, match) {
+  if (!penaltyWentHit(pred, match)) return false;
+
+  const realWinner = penaltyWinnerNameFromValue(match, cleanText(match.penaltyWinner));
+  const predWinner = penaltyWinnerNameFromValue(match, cleanText(pred.penaltyWinner));
+
+  return !!(realWinner && predWinner && sameText(realWinner, predWinner));
+}
+
+
 
 function parseScore(score) {
   const parts = cleanText(score).split('-').map(x => parseInt(x, 10));
@@ -885,6 +907,8 @@ function calcPoints() {
 
       if (cleanText(pred.score) === cleanText(m.result)) pts[p] += 3;
       if (advanceWinnerHit(pred, m)) pts[p] += 1;
+      if (penaltyWentHit(pred, m)) pts[p] += 1;
+      if (penaltyWinnerHit(pred, m)) pts[p] += 1;
       if (m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && minuteHit(pred.minuto, m.extraMinuto)) pts[p] += 1;
       if (m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador)) pts[p] += 1;
     });
@@ -933,6 +957,8 @@ function renderRanking() {
       <b>Partidos</b><br>
       ✅ Marcador exacto: +3 pts<br>
       ✅ Ganador del partido / clasificado por penales: +1 pt<br>
+      ✅ Predecir correctamente que iba a penales: +1 pt<br>
+      ✅ Ganador por penales correcto: +1 pt<br>
       ✅ Primer goleador: +1 pt<br>
       ✅ Minuto del primer gol: +1 pt <span style="color:#888;">(ventana ±1 min)</span><br><br>
       <b>Predicciones Generales</b><br>
@@ -1189,10 +1215,10 @@ function renderPredecir() {
             <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland"></div>
           </div>`:''}
           ${canHavePenalties(m)?`<div class="penalty-section">
-            <div class="penalty-title">🥅 Penales (opcional)</div>
+            <div class="penalty-title">🥅 Penales (solo si predices empate)</div>
             <div class="form-group"><label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
               <input type="checkbox" id="pen-${m.id}" onchange="togglePenaltyPred('${m.id}')">
-              <span>Creo que se define por penales</span>
+              <span>Creo que se define por penales</span><br><span style="font-size:11px;color:#8A5A00;">El marcador debe ser empate, ej: 1-1</span>
             </label></div>
             <div id="pen-fields-${m.id}" style="display:none;">
               <label class="form-label">Ganador por penales</label>
@@ -1228,6 +1254,11 @@ function submitPred(matchId) {
   const penEl = document.getElementById('pen-'+matchId);
   const penWinEl = document.getElementById('penwin-'+matchId);
   const penaltyWinner = penEl && penEl.checked ? cleanText(penWinEl ? penWinEl.value : '') : '';
+
+  if (penEl && penEl.checked && !isDrawScore(score)) {
+    showToast('Para predecir penales, el marcador debe ser empate');
+    return;
+  }
 
   if (penEl && penEl.checked && !penaltyWinner) {
     showToast('Selecciona quién gana por penales');
@@ -1362,6 +1393,11 @@ function saveAdminMatch(matchId) {
 
   m.penalties = !!(admPenalties && admPenalties.checked);
   m.penaltyWinner = m.penalties ? cleanText(admPenaltyWinner ? admPenaltyWinner.value : '') : '';
+
+  if (m.penalties && !isDrawScore(m.result)) {
+    showToast('Si se definió por penales, el resultado debe ser empate');
+    return;
+  }
 
   if (m.penalties && !m.penaltyWinner) {
     showToast('Selecciona quién ganó por penales');
@@ -1549,6 +1585,9 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
+
+
 
 
 
