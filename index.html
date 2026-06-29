@@ -70,6 +70,11 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 .tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; margin-right: 4px; margin-top: 4px; }
 .tag-green { background: #E1F5EE; color: #0F6E56; font-weight: 600; }
 .tag-blue { background: #E6F1FB; color: #185FA5; }
+
+.tag-penalty { background:#FFF3CD; color:#8A5A00; font-weight:700; }
+.penalty-section { margin-top:0.75rem; padding:0.75rem; background:#fff8e6; border-radius:10px; border:1px solid #f1dfad; }
+.penalty-title { font-size:12px; font-weight:700; color:#8A5A00; margin-bottom:0.5rem; }
+
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1D9E75; color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
 .toast.show { opacity: 1; }
 .empty-state { text-align: center; padding: 2rem 1rem; color: #aaa; font-size: 14px; }
@@ -112,6 +117,21 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 .bracket-spacer-md { height: 62px; }
 .bracket-spacer-lg { height: 130px; }
 .bracket-help { font-size: 11px; color:#888; line-height:1.4; margin-top:.75rem; }
+
+.bracket-card { position: relative; overflow: visible; }
+.bracket-line-h { position:absolute; top:50%; width:10px; height:2px; background:#cfd6dc; transform:translateY(-50%); pointer-events:none; z-index:0; }
+.bracket-line-h.right { right:-11px; }
+.bracket-line-h.left { left:-11px; }
+.bracket-line-v { position:absolute; width:2px; background:#cfd6dc; top:50%; pointer-events:none; z-index:0; }
+.bracket-line-v.right { right:-11px; }
+.bracket-line-v.left { left:-11px; }
+.bracket-line-v.r32 { height:88px; }
+.bracket-line-v.r16 { height:111px; }
+.bracket-line-v.qf { height:219px; }
+.bracket-line-v.sf { height:126px; }
+.bracket-card.final::before { content:""; position:absolute; left:-11px; top:50%; width:10px; height:2px; background:#cfd6dc; transform:translateY(-50%); }
+.bracket-card.final::after { content:""; position:absolute; right:-11px; top:50%; width:10px; height:2px; background:#cfd6dc; transform:translateY(-50%); }
+
 
 </style>
 </head>
@@ -486,6 +506,7 @@ function getMatchWinner(match) {
   if (!score || !teams.a || !teams.b) return '';
   if (score.a > score.b) return teams.a;
   if (score.b > score.a) return teams.b;
+  if (cleanText(match.penaltyWinner)) return penaltyWinnerNameFromValue(match, cleanText(match.penaltyWinner));
   return 'Empate';
 }
 
@@ -496,6 +517,9 @@ function getMatchLoser(match) {
   if (!score || !teams.a || !teams.b) return '';
   if (score.a > score.b) return teams.b;
   if (score.b > score.a) return teams.a;
+  if (score.a === score.b && cleanText(match.penaltyWinner)) {
+    return cleanText(match.penaltyWinner) === 'A' ? teams.b : teams.a;
+  }
   return '';
 }
 
@@ -632,6 +656,54 @@ function togglePhase(phaseKey) {
 }
 
 
+
+function canHavePenalties(match) {
+  return getMatchPhase(match).key !== 'grupos';
+}
+
+function isDrawScore(score) {
+  const s = parseScore(score);
+  return !!(s && s.a === s.b);
+}
+
+function penaltyWinnerNameFromValue(match, value) {
+  const teams = getMatchTeams(match.name);
+  if (value === 'A') return teams.a;
+  if (value === 'B') return teams.b;
+  return '';
+}
+
+function predictionAdvanceWinner(pred, match) {
+  if (!pred || !match) return '';
+
+  if (isDrawScore(pred.score) && cleanText(pred.penaltyWinner)) {
+    return penaltyWinnerNameFromValue(match, cleanText(pred.penaltyWinner));
+  }
+
+  const teams = getMatchTeams(match.name);
+  const outcomeValue = outcome(pred.score);
+  if (outcomeValue === 'A') return teams.a;
+  if (outcomeValue === 'B') return teams.b;
+  if (outcomeValue === 'D') return 'Empate';
+  return '';
+}
+
+function advanceWinnerHit(pred, match) {
+  if (!pred || !match || !match.done || !match.result) return false;
+
+  const realWinner = getMatchWinner(match);
+  const predWinner = predictionAdvanceWinner(pred, match);
+
+  if (!realWinner || !predWinner) return false;
+  return sameText(realWinner, predWinner);
+}
+
+function penaltyTextFromValue(match, value) {
+  const winner = penaltyWinnerNameFromValue(match, cleanText(value));
+  return winner ? `Penales: ${winner}` : '';
+}
+
+
 function parseScore(score) {
   const parts = cleanText(score).split('-').map(x => parseInt(x, 10));
   if (parts.length !== 2 || Number.isNaN(parts[0]) || Number.isNaN(parts[1])) return null;
@@ -664,6 +736,10 @@ function ensureStateShape() {
   if (!state.matches) state.matches = [];
   inferBracketCodesForAll();
   state.matches = sortedMatches(state.matches);
+  state.matches.forEach(m => {
+    if (m.penalties === undefined) m.penalties = false;
+    if (m.penaltyWinner === undefined) m.penaltyWinner = '';
+  });
   if (!state.predictions) state.predictions = {};
   PLAYERS.forEach(p => {
     if (!state.predictions[p]) state.predictions[p] = {};
@@ -808,7 +884,7 @@ function calcPoints() {
       if (!pred) return;
 
       if (cleanText(pred.score) === cleanText(m.result)) pts[p] += 3;
-      if (winnerHit(pred.score, m.result)) pts[p] += 1;
+      if (advanceWinnerHit(pred, m)) pts[p] += 1;
       if (m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && minuteHit(pred.minuto, m.extraMinuto)) pts[p] += 1;
       if (m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador)) pts[p] += 1;
     });
@@ -856,7 +932,7 @@ function renderRanking() {
     <div class="points-box">
       <b>Partidos</b><br>
       ✅ Marcador exacto: +3 pts<br>
-      ✅ Ganador del partido / empate: +1 pt<br>
+      ✅ Ganador del partido / clasificado por penales: +1 pt<br>
       ✅ Primer goleador: +1 pt<br>
       ✅ Minuto del primer gol: +1 pt <span style="color:#888;">(ventana ±1 min)</span><br><br>
       <b>Predicciones Generales</b><br>
@@ -936,7 +1012,7 @@ function renderPartidos() {
       PLAYERS.forEach(p => {
         const pred = (state.predictions[p]||{})[m.id];
         const scoreHit = m.done && pred && cleanText(pred.score) === cleanText(m.result);
-        const winnerOnlyHit = m.done && pred && winnerHit(pred.score, m.result);
+        const winnerOnlyHit = m.done && pred && advanceWinnerHit(pred, m);
         const minutoHit = m.done && pred && m.extraActive && cleanText(m.extraMinuto) && cleanText(pred.minuto) && minuteHit(pred.minuto, m.extraMinuto);
         const jugadorHit = m.done && pred && m.extraActive && cleanText(m.extraJugador) && cleanText(pred.jugador) && sameText(pred.jugador, m.extraJugador);
 
@@ -964,12 +1040,54 @@ function renderPartidos() {
         </div>
         <div class="predictions-grid">${predsHtml}</div>
         ${m.done&&m.result?`<div class="result-row"><span class="result-label">Resultado final:</span><span class="result-score">${m.result}</span></div>`:''}
+        ${m.done&&m.penalties&&m.penaltyWinner?`<div class="result-row"><span class="result-label">Penales:</span><span class="result-score">Clasifica ${penaltyWinnerNameFromValue(m, m.penaltyWinner)}</span></div>`:''}
         ${m.done&&m.extraActive&&(m.extraMinuto||m.extraJugador)?`<div class="result-row"><span class="result-label">Extras reales:</span><span class="result-score">${m.extraMinuto?`⏱ ${m.extraMinuto}`:''} ${m.extraJugador?`⚽ ${m.extraJugador}`:''}</span></div>`:''}
       </div>`;
     });
   });
 
   document.getElementById('partidos-list').innerHTML = html;
+}
+
+
+
+function bracketLineHtml(code) {
+  const slot = BRACKET_SLOTS[code];
+  if (!slot) return '';
+
+  const leftTopPairs = {
+    P74:'r32', P73:'r32', P83:'r32', P81:'r32',
+    P89:'r16', P93:'r16',
+    P97:'qf'
+  };
+
+  const rightTopPairs = {
+    P76:'r32', P79:'r32', P86:'r32', P85:'r32',
+    P91:'r16', P95:'r16',
+    P99:'qf'
+  };
+
+  let html = '';
+
+  if (slot.side === 'left') {
+    html += '<span class="bracket-line-h right"></span>';
+    if (leftTopPairs[code]) html += `<span class="bracket-line-v right ${leftTopPairs[code]}"></span>`;
+  }
+
+  if (slot.side === 'right') {
+    html += '<span class="bracket-line-h left"></span>';
+    if (rightTopPairs[code]) html += `<span class="bracket-line-v left ${rightTopPairs[code]}"></span>`;
+  }
+
+  if (code === 'P101') {
+    html += '<span class="bracket-line-h right"></span>';
+  }
+
+  if (code === 'P102') {
+    html += '<span class="bracket-line-h left"></span>';
+  }
+
+  return html;
 }
 
 
@@ -984,11 +1102,12 @@ function renderBracketCard(code, variant='normal') {
   const title = code === 'P103' ? 'Tercer puesto' : (code === 'P104' ? 'Final' : '');
 
   return `<div class="bracket-card ${match ? '' : 'placeholder'} ${variant}">
+    ${bracketLineHtml(code)}
     <div class="bracket-date"><span>${date}</span><span>${time}</span></div>
     ${title ? `<div class="bracket-section-label">${title}</div>` : ''}
     <div class="bracket-team">${displayBracketTeam(teamA)}</div>
     <div class="bracket-team">${displayBracketTeam(teamB)}</div>
-    ${match && match.done && match.result ? `<div class="bracket-result">${cleanText(match.result)}</div>` : `<div class="bracket-result" style="color:#aaa;">Pendiente</div>`}
+    ${match && match.done && match.result ? `<div class="bracket-result">${cleanText(match.result)}${match.penalties&&match.penaltyWinner ? ` · penales: ${penaltyWinnerNameFromValue(match, match.penaltyWinner)}` : ''}</div>` : `<div class="bracket-result" style="color:#aaa;">Pendiente</div>`}
     ${winner && winner !== 'Empate' ? `<div class="bracket-winner">Clasifica: ${formatTeam(winner)}</div>` : ''}
     <div class="bracket-code">${code}</div>
   </div>`;
@@ -1047,6 +1166,7 @@ function renderPredecir() {
         let extraHtml = '';
         if (already.minuto) extraHtml += `<span class="tag tag-blue">⏱ min ${already.minuto}</span>`;
         if (already.jugador) extraHtml += `<span class="tag tag-blue">⚽ ${already.jugador}</span>`;
+        if (already.penaltyWinner) extraHtml += `<span class="tag tag-penalty">🥅 ${penaltyTextFromValue(m, already.penaltyWinner)}</span>`;
         html += `<div class="match-card">
           <div class="match-header"><div class="match-title">${m.name}</div><span class="match-status status-done">Guardado ✓</span></div>
           <div style="margin-top:0.5rem;"><span class="tag tag-green" style="font-size:14px;padding:5px 14px;">${already.score}</span>${extraHtml}</div>
@@ -1066,7 +1186,22 @@ function renderPredecir() {
           ${m.extraActive?`<div class="extra-section">
             <div class="extra-title">⭐ Puntos extra (opcional)</div>
             <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="number" min="1" max="120" id="em-${m.id}" placeholder="ej: 28"></div>
-            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Equipo que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland"></div>
+            <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Haaland"></div>
+          </div>`:''}
+          ${canHavePenalties(m)?`<div class="penalty-section">
+            <div class="penalty-title">🥅 Penales (opcional)</div>
+            <div class="form-group"><label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="pen-${m.id}" onchange="togglePenaltyPred('${m.id}')">
+              <span>Creo que se define por penales</span>
+            </label></div>
+            <div id="pen-fields-${m.id}" style="display:none;">
+              <label class="form-label">Ganador por penales</label>
+              <select id="penwin-${m.id}">
+                <option value="">Selecciona ganador</option>
+                <option value="A">${getMatchTeams(m.name).a}</option>
+                <option value="B">${getMatchTeams(m.name).b}</option>
+              </select>
+            </div>
           </div>`:''}
           <button class="btn-primary" onclick="submitPred('${m.id}')">Guardar predicción</button>
         </div>`;
@@ -1076,6 +1211,13 @@ function renderPredecir() {
   document.getElementById('predecir-list').innerHTML = html;
 }
 
+function togglePenaltyPred(matchId) {
+  const checkbox = document.getElementById('pen-'+matchId);
+  const fields = document.getElementById('pen-fields-'+matchId);
+  if (!checkbox || !fields) return;
+  fields.style.display = checkbox.checked ? '' : 'none';
+}
+
 function submitPred(matchId) {
   const a = document.getElementById('sa-'+matchId);
   const b = document.getElementById('sb-'+matchId);
@@ -1083,8 +1225,17 @@ function submitPred(matchId) {
   const score = `${a.value}-${b.value}`;
   const minEl = document.getElementById('em-'+matchId);
   const jugEl = document.getElementById('ej-'+matchId);
+  const penEl = document.getElementById('pen-'+matchId);
+  const penWinEl = document.getElementById('penwin-'+matchId);
+  const penaltyWinner = penEl && penEl.checked ? cleanText(penWinEl ? penWinEl.value : '') : '';
+
+  if (penEl && penEl.checked && !penaltyWinner) {
+    showToast('Selecciona quién gana por penales');
+    return;
+  }
+
   if (!state.predictions[currentPlayer]) state.predictions[currentPlayer]={};
-  state.predictions[currentPlayer][matchId] = {score, minuto:minEl?minEl.value.trim():'', jugador:jugEl?jugEl.value.trim():''};
+  state.predictions[currentPlayer][matchId] = {score, minuto:minEl?minEl.value.trim():'', jugador:jugEl?jugEl.value.trim():'', penalties:!!(penEl && penEl.checked), penaltyWinner};
   saveState();
   showToast('¡Predicción guardada!');
   renderPredecir(); renderPartidos(); renderRanking();
@@ -1119,6 +1270,21 @@ function renderAdminMatch() {
         <input type="number" min="0" max="20" class="score-input" id="adm-b" value="${m.result?m.result.split('-')[1]:''}" placeholder="0">
       </div>
     </div>
+    ${canHavePenalties(m)?`<div class="penalty-section">
+      <div class="penalty-title">🥅 Penales</div>
+      <div class="form-group"><label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="adm-penalties" ${m.penalties?'checked':''} onchange="toggleAdminPenalties()">
+        <span>Este partido se definió por penales</span>
+      </label></div>
+      <div id="adm-penalty-fields" style="${m.penalties?'':'display:none;'}">
+        <label class="form-label">Ganador por penales</label>
+        <select id="adm-penalty-winner">
+          <option value="">Selecciona ganador</option>
+          <option value="A" ${m.penaltyWinner==='A'?'selected':''}>${getMatchTeams(m.name).a}</option>
+          <option value="B" ${m.penaltyWinner==='B'?'selected':''}>${getMatchTeams(m.name).b}</option>
+        </select>
+      </div>
+    </div>`:''}
     <div class="form-group"><label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
       <input type="checkbox" id="adm-extra" ${m.extraActive?'checked':''} onchange="toggleAdminExtra()">
       <span>Activar puntos extra para este partido</span>
@@ -1127,7 +1293,7 @@ function renderAdminMatch() {
       <div class="extra-section">
         <div class="extra-title">Puntos extra</div>
         <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="text" id="adm-minuto" value="${m.extraMinuto||''}" placeholder="ej: 28"></div>
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Equipo que anotó primero</label><input type="text" id="adm-jugador" value="${m.extraJugador||''}" placeholder="ej: Haaland"></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Jugador que anotó primero</label><input type="text" id="adm-jugador" value="${m.extraJugador||''}" placeholder="ej: Haaland"></div>
       </div>
     </div>
     <button class="btn-primary" onclick="saveAdminMatch('${matchId}')">Guardar resultado</button>
@@ -1142,6 +1308,13 @@ function renderAdminMatch() {
 
 function toggleAdminExtra() {
   document.getElementById('adm-extra-fields').style.display = document.getElementById('adm-extra').checked?'':'none';
+}
+
+function toggleAdminPenalties() {
+  const checkbox = document.getElementById('adm-penalties');
+  const fields = document.getElementById('adm-penalty-fields');
+  if (!checkbox || !fields) return;
+  fields.style.display = checkbox.checked ? '' : 'none';
 }
 
 
@@ -1184,6 +1357,17 @@ function saveAdminMatch(matchId) {
   if (a===''||b==='') { showToast('Ingresa el resultado'); return; }
   const m = state.matches.find(x=>x.id===matchId);
   m.result=`${a}-${b}`; m.done=true;
+  const admPenalties = document.getElementById('adm-penalties');
+  const admPenaltyWinner = document.getElementById('adm-penalty-winner');
+
+  m.penalties = !!(admPenalties && admPenalties.checked);
+  m.penaltyWinner = m.penalties ? cleanText(admPenaltyWinner ? admPenaltyWinner.value : '') : '';
+
+  if (m.penalties && !m.penaltyWinner) {
+    showToast('Selecciona quién ganó por penales');
+    return;
+  }
+
   m.extraActive=document.getElementById('adm-extra').checked;
   m.extraMinuto=document.getElementById('adm-minuto')?document.getElementById('adm-minuto').value.trim():'';
   m.extraJugador=document.getElementById('adm-jugador')?document.getElementById('adm-jugador').value.trim():'';
@@ -1338,10 +1522,12 @@ async function deleteMatch(matchId) {
 window.showTab = showTab;
 window.refreshPage = refreshPage;
 window.submitPred = submitPred;
+window.togglePenaltyPred = togglePenaltyPred;
 window.savePlayer = savePlayer;
 window.renderPredecir = renderPredecir;
 window.renderAdminMatch = renderAdminMatch;
 window.toggleAdminExtra = toggleAdminExtra;
+window.toggleAdminPenalties = toggleAdminPenalties;
 window.saveAdminMatch = saveAdminMatch;
 window.saveAdminMatchInfo = saveAdminMatchInfo;
 window.addMatch = addMatch;
@@ -1363,8 +1549,6 @@ loadState().then(() => {
 </script>
 </body>
 </html>
-
-
 
 
 
