@@ -103,7 +103,30 @@ select, input[type="text"], input[type="number"] { width: 100%; padding: 10px 12
 .phase-toggle .phase-count { font-size: 11px; color: #0F6E56; opacity: .75; font-weight: 700; text-transform: none; letter-spacing: 0; }
 .phase-collapsed-note { background:#fff; border:1px dashed #e5e5e0; border-radius:12px; padding:12px; color:#aaa; font-size:12px; text-align:center; margin-bottom:1rem; }
 .phase-label { font-size: 12px; font-weight: 700; color: #0F6E56; letter-spacing: 0.04em; text-transform: uppercase; margin: 1.5rem 0 0.35rem; }
+
 .classification-scroll { overflow-x: auto; padding-bottom: 0.75rem; }
+.radial-wrapper { min-width: 1160px; }
+.radial-legend { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px; }
+.radial-legend span { background:#fff; border:1px solid #e2e6e9; border-radius:999px; padding:6px 10px; font-size:11px; font-weight:700; color:#0F6E56; }
+.radial-board { position:relative; width:1120px; height:1120px; margin:0 auto; background:#f7f4ef; border-radius:24px; overflow:hidden; }
+.radial-svg { position:absolute; inset:0; width:100%; height:100%; }
+.radial-team { position:absolute; transform:translate(-50%,-50%); text-align:center; width:74px; }
+.radial-team .flag { width:48px; height:48px; border-radius:50%; background:#fff; border:3px solid rgba(255,255,255,.9); box-shadow:0 2px 8px rgba(0,0,0,.08); margin:0 auto 4px auto; display:flex; align-items:center; justify-content:center; font-size:26px; }
+.radial-team .code { font-size:11px; font-weight:800; color:#263238; letter-spacing:.3px; }
+.radial-node { position:absolute; transform:translate(-50%,-50%); background:#fff; border:1px solid #d8dde2; border-radius:10px; padding:6px 8px; width:86px; box-shadow:0 1px 4px rgba(0,0,0,.05); text-align:center; }
+.radial-node.small { width:80px; }
+.radial-node.medium { width:88px; }
+.radial-node.large { width:96px; }
+.radial-node .top { font-size:10px; color:#7b8794; font-weight:700; margin-bottom:3px; }
+.radial-node .line { font-size:11px; font-weight:800; color:#1f2933; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.radial-node .line.winner { color:#0F6E56; }
+.radial-node .meta { font-size:10px; color:#0F6E56; font-weight:800; margin-top:4px; }
+.radial-node .result { font-size:10px; color:#8a5a00; font-weight:800; margin-top:2px; }
+.radial-center-box { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:170px; height:170px; border-radius:50%; background:#fff9ef; border:2px solid #e7dcc3; display:flex; align-items:center; justify-content:center; text-align:center; box-shadow:0 3px 14px rgba(0,0,0,.06); }
+.radial-trophy { font-size:44px; line-height:1; }
+.radial-center-caption { margin-top:8px; font-size:12px; color:#0F6E56; font-weight:800; }
+.radial-note { font-size:11px; color:#666; text-align:center; margin-top:10px; }
+
 .bracket-board { display: flex; gap: 10px; align-items: center; min-width: 1360px; }
 .bracket-column { flex: 0 0 145px; display: flex; flex-direction: column; justify-content: center; }
 .bracket-title { font-size: 11px; font-weight: 800; color: #0F6E56; text-transform: uppercase; margin-bottom: 0.6rem; text-align: center; min-height: 30px; }
@@ -419,6 +442,51 @@ const TEAM_FLAGS = {
   'ghana':'🇬🇭','gha':'🇬🇭'
 };
 
+
+const TEAM_ABBR = {
+  'alemania':'GER','germany':'GER','ger':'GER',
+  'paraguay':'PAR','par':'PAR',
+  'francia':'FRA','france':'FRA','fra':'FRA',
+  'suecia':'SWE','sweden':'SWE','swe':'SWE',
+  'sudafrica':'RSA','sudáfrica':'RSA','south africa':'RSA','rsa':'RSA',
+  'canada':'CAN','canadá':'CAN','can':'CAN',
+  'paises bajos':'NED','países bajos':'NED','netherlands':'NED','holanda':'NED','ned':'NED',
+  'marruecos':'MAR','morocco':'MAR','mar':'MAR',
+  'portugal':'POR','por':'POR',
+  'croacia':'CRO','croatia':'CRO','cro':'CRO',
+  'españa':'ESP','espana':'ESP','spain':'ESP','esp':'ESP',
+  'austria':'AUT','aut':'AUT',
+  'estados unidos':'USA','usa':'USA','united states':'USA','eeuu':'USA',
+  'bosnia y herzegovina':'BIH','bosnia':'BIH','bosnia and herzegovina':'BIH','bih':'BIH',
+  'bélgica':'BEL','belgica':'BEL','belgium':'BEL','bel':'BEL',
+  'senegal':'SEN','sen':'SEN',
+  'brasil':'BRA','brazil':'BRA','bra':'BRA',
+  'japón':'JPN','japon':'JPN','japan':'JPN','jpn':'JPN',
+  'costa de marfil':'CIV','ivory coast':'CIV','civ':'CIV',
+  'noruega':'NOR','norway':'NOR','nor':'NOR',
+  'méxico':'MEX','mexico':'MEX','mex':'MEX',
+  'ecuador':'ECU','ecu':'ECU',
+  'inglaterra':'ENG','england':'ENG','eng':'ENG',
+  'rd congo':'COD','dr congo':'COD','congo':'COD','cod':'COD',
+  'argentina':'ARG','arg':'ARG',
+  'cabo verde':'CPV','cape verde':'CPV','cpv':'CPV',
+  'australia':'AUS','aus':'AUS',
+  'egipto':'EGY','egypt':'EGY','egy':'EGY',
+  'suiza':'SUI','switzerland':'SUI','sui':'SUI',
+  'argelia':'ALG','algeria':'ALG','alg':'ALG','dza':'ALG',
+  'colombia':'COL','col':'COL',
+  'ghana':'GHA','gha':'GHA'
+};
+
+function abbrForTeam(name) {
+  const resolved = resolveBracketParticipant(name);
+  const clean = cleanText(resolved);
+  if (!clean) return '---';
+  if (/^(W|RU)\d+$/i.test(clean)) return clean.toUpperCase();
+  const key = normalizeTeamName(clean);
+  return TEAM_ABBR[key] || clean.substring(0,3).toUpperCase();
+}
+
 function normalizeTeamName(name) {
   return cleanText(name)
     .toLowerCase()
@@ -710,19 +778,25 @@ function penaltyTextFromValue(match, value) {
 }
 
 function penaltyWentHit(pred, match) {
-  return !!(
-    pred &&
+  const realWentToPenalties = !!(
     match &&
     match.done &&
-    match.penalties &&
-    match.penaltyWinner &&
-    pred.penalties &&
-    isDrawScore(pred.score)
+    isDrawScore(match.result) &&
+    (match.penalties || cleanText(match.penaltyWinner))
   );
+
+  const predWentToPenalties = !!(
+    pred &&
+    isDrawScore(pred.score) &&
+    (pred.penalties || cleanText(pred.penaltyWinner))
+  );
+
+  return realWentToPenalties && predWentToPenalties;
 }
 
 function penaltyWinnerHit(pred, match) {
   if (!penaltyWentHit(pred, match)) return false;
+  if (!cleanText(match.penaltyWinner) || !cleanText(pred.penaltyWinner)) return false;
 
   const realWinner = penaltyWinnerNameFromValue(match, cleanText(match.penaltyWinner));
   const predWinner = penaltyWinnerNameFromValue(match, cleanText(pred.penaltyWinner));
@@ -1158,227 +1232,168 @@ function renderBracketColumn(title, codes, spacerClass='') {
   return html;
 }
 
-function renderClasificacion() {
-  ensureStateShape();
 
-  let html = `<div class="classification-scroll"><div class="bracket-board">
-    ${renderBracketColumn('Dieciseisavos', ['P74','P77','P73','P75','P83','P84','P81','P82'])}
-    ${renderBracketColumn('Octavos', ['P89','P90','P93','P94'], 'bracket-spacer-sm')}
-    ${renderBracketColumn('Cuartos', ['P97','P98'], 'bracket-spacer-lg')}
-    ${renderBracketColumn('Semifinal', ['P101'], '')}
-    <div class="bracket-column bracket-center"><div class="bracket-title">Final</div>
-      ${renderBracketCard('P104', 'final')}
-      <div class="bracket-spacer-md"></div>
-      ${renderBracketCard('P103', 'third')}
-    </div>
-    ${renderBracketColumn('Semifinal', ['P102'], '')}
-    ${renderBracketColumn('Cuartos', ['P99','P100'], 'bracket-spacer-lg')}
-    ${renderBracketColumn('Octavos', ['P91','P92','P95','P96'], 'bracket-spacer-sm')}
-    ${renderBracketColumn('Dieciseisavos', ['P76','P78','P79','P80','P86','P88','P85','P87'])}
-  </div></div>
-  <div class="bracket-help">Si un partido aparece en una posición incorrecta, corrige su <b>Código de llave</b> desde Admin.</div>`;
-
-  document.getElementById('clasificacion-list').innerHTML = html;
+function radialPoint(angleDeg, radius, cx=560, cy=560) {
+  const rad = angleDeg * Math.PI / 180;
+  return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
 }
 
+function slotDisplayInfo(code) {
+  const slot = BRACKET_SLOTS[code];
+  const match = findMatchByBracketCode(code);
+  const fallbackA = resolveBracketParticipant(slot.teamA);
+  const fallbackB = resolveBracketParticipant(slot.teamB);
 
-function playersWithPrediction(match) {
-  if (!match || !state || !state.predictions) return [];
-  return PLAYERS.filter(p => !!((state.predictions[p] || {})[match.id]));
+  const teamA = match ? getMatchTeams(match.name).a : fallbackA;
+  const teamB = match ? getMatchTeams(match.name).b : fallbackB;
+  const winner = match ? getMatchWinner(match) : '';
+  const result = match && match.done && match.result ? cleanText(match.result) : '';
+  const penaltiesText = match && match.done && cleanText(match.penaltyWinner) ? `Pen. ${abbrForTeam(penaltyWinnerNameFromValue(match, match.penaltyWinner))}` : '';
+
+  return { code, slot, match, teamA, teamB, winner, result, penaltiesText };
 }
 
-function playersEligibleForNewSecondChance(match) {
-  if (!match || !state || !state.predictions) return [];
-  return PLAYERS.filter(p => {
-    const pred = (state.predictions[p] || {})[match.id];
-    return !!(pred && !pred.secondChanceUsed);
-  });
-}
-
-function canUseSecondChance(player, match) {
-  if (!player || !match || match.done || !match.secondChanceOpen) return false;
-
-  const pred = ((state.predictions || {})[player] || {})[match.id];
-  if (!pred || pred.secondChanceUsed) return false;
-
-  return (match.secondChanceEligible || []).includes(player);
-}
-
-function secondChanceAdminText(match) {
-  const eligible = match.secondChanceOpen ? (match.secondChanceEligible || []) : playersEligibleForNewSecondChance(match);
-  const used = PLAYERS.filter(p => {
-    const pred = ((state.predictions || {})[p] || {})[match.id];
-    return !!(pred && pred.secondChanceUsed);
-  });
-
-  let text = '';
-  if (match.secondChanceOpen) {
-    text += eligible.length ? `Pueden editar una vez: ${eligible.join(', ')}` : 'No hay jugadores elegibles para editar.';
-  } else {
-    text += eligible.length ? `Si abres ahora, podrán editar: ${eligible.join(', ')}` : 'Si abres ahora, no hay jugadores elegibles todavía.';
-  }
-
-  if (used.length) text += `<br>Ya usaron su segunda oportunidad: ${used.join(', ')}`;
-  return text;
-}
-
-function renderPredictionForm(m, pred=null, mode='new') {
-  const score = pred ? parseScore(pred.score) : null;
-  const scoreA = score ? score.a : '';
-  const scoreB = score ? score.b : '';
-  const isEdit = mode === 'secondChance';
-  const teams = getMatchTeams(m.name);
-  const showPenalty = canHavePenalties(m) && score && score.a === score.b;
-  const penaltyWinner = cleanText(pred?.penaltyWinner || '');
-
-  return `<div class="match-card">
-    <div class="match-header">
-      <div class="match-title">${m.name}</div>
-      ${isEdit ? '<span class="match-status status-upcoming">2da oportunidad</span>' : ''}
-    </div>
-
-    ${isEdit ? `<div class="second-chance-section">
-      <div class="second-chance-title">🔓 Segunda oportunidad abierta</div>
-      <div class="second-chance-note">Puedes cambiar esta predicción una sola vez mientras Admin la mantenga abierta.</div>
-    </div>` : ''}
-
-    <div class="form-group" style="margin-top:0.75rem;">
-      <label class="form-label">Marcador</label>
-      <div class="form-row">
-        <input type="number" min="0" max="20" class="score-input" id="sa-${m.id}" placeholder="0" value="${scoreA}" oninput="togglePenaltyPred('${m.id}')">
-        <span class="score-sep">—</span>
-        <input type="number" min="0" max="20" class="score-input" id="sb-${m.id}" placeholder="0" value="${scoreB}" oninput="togglePenaltyPred('${m.id}')">
-      </div>
-    </div>
-
-    ${m.extraActive?`<div class="extra-section">
-      <div class="extra-title">⭐ Puntos extra (opcional)</div>
-      <div class="form-group"><label class="form-label">Minuto del primer gol</label><input type="number" min="1" max="120" id="em-${m.id}" placeholder="ej: 28" value="${cleanText(pred?.minuto || '')}"></div>
-      <div class="form-group" style="margin-bottom:0;"><label class="form-label">Equipo que anota primero</label><input type="text" id="ej-${m.id}" placeholder="ej: Brasil" value="${cleanText(pred?.jugador || '')}"></div>
-    </div>`:''}
-
-    ${canHavePenalties(m)?`<div class="penalty-section" id="penalty-section-${m.id}" style="${showPenalty ? '' : 'display:none;'}">
-      <div class="penalty-title">🥅 Ganador por penales</div>
-      <div style="font-size:11px;color:#8A5A00;line-height:1.35;margin-bottom:0.5rem;">
-        Como pusiste empate, elige quién clasifica por penales.
-      </div>
-      <label class="form-label">Gana por penales:</label>
-      <select id="penwin-${m.id}">
-        <option value="">Selecciona ganador</option>
-        <option value="A" ${penaltyWinner === 'A' ? 'selected' : ''}>${teams.a}</option>
-        <option value="B" ${penaltyWinner === 'B' ? 'selected' : ''}>${teams.b}</option>
-      </select>
-    </div>`:''}
-
-    <button class="btn-primary" onclick="submitPred('${m.id}', ${isEdit ? 'true' : 'false'})">${isEdit ? 'Guardar cambio único' : 'Guardar predicción'}</button>
+function renderRadialTeamBadge(teamName, point) {
+  const flag = flagForTeam(teamName);
+  const abbr = abbrForTeam(teamName);
+  return `<div class="radial-team" style="left:${point.x}px;top:${point.y}px;">
+    <div class="flag">${flag}</div>
+    <div class="code">${abbr}</div>
   </div>`;
 }
 
+function renderRadialNode(code, point, size='small', title='') {
+  const info = slotDisplayInfo(code);
+  const lineA = abbrForTeam(info.teamA);
+  const lineB = abbrForTeam(info.teamB);
+  const winnerA = info.winner && sameText(info.winner, info.teamA);
+  const winnerB = info.winner && sameText(info.winner, info.teamB);
+  const resultText = info.result ? `${info.result}${info.penaltiesText ? ' · ' + info.penaltiesText : ''}` : '';
+  return `<div class="radial-node ${size}" style="left:${point.x}px;top:${point.y}px;">
+    <div class="top">${title || info.slot.date}</div>
+    <div class="line ${winnerA ? 'winner' : ''}">${lineA}</div>
+    <div class="line ${winnerB ? 'winner' : ''}">${lineB}</div>
+    <div class="meta">${code}</div>
+    ${resultText ? `<div class="result">${resultText}</div>` : ''}
+  </div>`;
+}
 
-function renderPredecir() {
-  currentPlayer = document.getElementById('player-select').value;
-  if (!currentPlayer) { document.getElementById('predecir-list').innerHTML = '<div class="empty-state">Selecciona tu nombre arriba</div>'; return; }
+function svgLine(a, b) {
+  return `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#2d2b2a" stroke-width="2.2" stroke-linecap="round" />`;
+}
+
+function renderClasificacion() {
   ensureStateShape();
 
-  const myPreds = state.predictions[currentPlayer]||{};
-  const pending = sortedMatches(state.matches).filter(m=>!m.done);
-  let html = buildGeneralPredictionsBlock(currentPlayer);
+  const cx = 560, cy = 560;
+  const groupAngles = [-157.5,-112.5,-67.5,-22.5,22.5,67.5,112.5,157.5];
+  const groupPairs = [
+    {r16:'P89', r32:['P74','P77']},
+    {r16:'P90', r32:['P73','P75']},
+    {r16:'P93', r32:['P83','P84']},
+    {r16:'P94', r32:['P81','P82']},
+    {r16:'P96', r32:['P87','P85']},
+    {r16:'P95', r32:['P88','P86']},
+    {r16:'P92', r32:['P80','P79']},
+    {r16:'P91', r32:['P78','P76']}
+  ];
 
-  if (!pending.length) {
-    html += '<div class="empty-state">No hay partidos pendientes por predecir</div>';
-  } else {
-    let lastPhase = '';
-    let lastDate = '';
+  const qfData = [
+    {code:'P97', angle:-135, from:['P89','P90']},
+    {code:'P98', angle:135, from:['P93','P94']},
+    {code:'P100', angle:45, from:['P96','P95']},
+    {code:'P99', angle:-45, from:['P92','P91']}
+  ];
 
-    pending.forEach(m => {
-      const phase = getMatchPhase(m);
-      if (phase.label !== lastPhase) { html+=`<div class="phase-label">${phase.label}</div>`; lastPhase=phase.label; lastDate=''; }
-      if (m.date!==lastDate) { html+=`<div class="group-label">${m.date}</div>`; lastDate=m.date; }
+  const sfData = [
+    {code:'P101', point:{x:405,y:560}, from:['P97','P98'], title:'Semifinal'},
+    {code:'P102', point:{x:715,y:560}, from:['P99','P100'], title:'Semifinal'}
+  ];
 
-      const already = myPreds[m.id];
+  const finalPoint = {x:560,y:410};
+  const thirdPoint = {x:560,y:710};
 
-      if (already) {
-        if (canUseSecondChance(currentPlayer, m)) {
-          html += renderPredictionForm(m, already, 'secondChance');
-        } else {
-          let extraHtml = '';
-          if (already.minuto) extraHtml += `<span class="tag tag-blue">⏱ min ${already.minuto}</span>`;
-          if (already.jugador) extraHtml += `<span class="tag tag-blue">⚽ ${already.jugador}</span>`;
-          if (already.penaltyWinner) extraHtml += `<span class="tag tag-penalty">🥅 Gana por penales: ${penaltyWinnerNameFromValue(m, already.penaltyWinner)}</span>`;
+  let svg = '';
+  let htmlNodes = '';
 
-          const lockText = already.secondChanceUsed
-            ? 'Ya usaste tu segunda oportunidad. Predicción bloqueada.'
-            : 'Ya no puedes editar tu predicción';
+  groupPairs.forEach((group, index) => {
+    const gAngle = groupAngles[index];
+    const r16Point = radialPoint(gAngle, 330, cx, cy);
+    const r32Angles = [gAngle - 10, gAngle + 10];
 
-          html += `<div class="match-card">
-            <div class="match-header"><div class="match-title">${m.name}</div><span class="match-status status-done">Guardado ✓</span></div>
-            <div style="margin-top:0.5rem;"><span class="tag tag-green" style="font-size:14px;padding:5px 14px;">${already.score}</span>${extraHtml}</div>
-            <div style="font-size:11px;color:#bbb;margin-top:8px;">${lockText}</div>
-          </div>`;
-        }
-      } else {
-        html += renderPredictionForm(m, null, 'new');
-      }
+    group.r32.forEach((code, i) => {
+      const info = slotDisplayInfo(code);
+      const matchPoint = radialPoint(r32Angles[i], 450, cx, cy);
+      const team1 = radialPoint(r32Angles[i] - 4.2, 525, cx, cy);
+      const team2 = radialPoint(r32Angles[i] + 4.2, 525, cx, cy);
+
+      svg += svgLine(team1, matchPoint);
+      svg += svgLine(team2, matchPoint);
+      svg += svgLine(matchPoint, r16Point);
+
+      htmlNodes += renderRadialTeamBadge(info.teamA, team1);
+      htmlNodes += renderRadialTeamBadge(info.teamB, team2);
+
+      const miniLabel = info.result ? info.result : code;
+      htmlNodes += `<div style="position:absolute;left:${matchPoint.x}px;top:${matchPoint.y}px;transform:translate(-50%,-50%);font-size:11px;font-weight:800;color:#2d2b2a;background:transparent;">${miniLabel}</div>`;
+      htmlNodes += `<div style="position:absolute;left:${matchPoint.x}px;top:${matchPoint.y + 16}px;transform:translateX(-50%);font-size:10px;color:#0F6E56;font-weight:800;">${code}</div>`;
     });
-  }
 
-  document.getElementById('predecir-list').innerHTML = html;
-}
+    htmlNodes += renderRadialNode(group.r16, r16Point, 'small', 'Octavos');
+  });
 
-function togglePenaltyPred(matchId) {
-  const a = document.getElementById('sa-'+matchId);
-  const b = document.getElementById('sb-'+matchId);
-  const section = document.getElementById('penalty-section-'+matchId);
-  const winner = document.getElementById('penwin-'+matchId);
+  qfData.forEach(qf => {
+    const qfPoint = radialPoint(qf.angle, 210, cx, cy);
+    qf.from.forEach(source => {
+      const sourceIndex = groupPairs.findIndex(g => g.r16 === source);
+      const sourcePoint = radialPoint(groupAngles[sourceIndex], 330, cx, cy);
+      svg += svgLine(sourcePoint, qfPoint);
+    });
+    htmlNodes += renderRadialNode(qf.code, qfPoint, 'medium', 'Cuartos');
+  });
 
-  if (!a || !b || !section) return;
+  sfData.forEach(sf => {
+    sf.from.forEach(source => {
+      const qf = qfData.find(q => q.code === source);
+      const qfPoint = radialPoint(qf.angle, 210, cx, cy);
+      svg += svgLine(qfPoint, sf.point);
+    });
+    htmlNodes += renderRadialNode(sf.code, sf.point, 'medium', sf.title);
+  });
 
-  const isComplete = a.value !== '' && b.value !== '';
-  const isDraw = isComplete && parseInt(a.value, 10) === parseInt(b.value, 10);
+  svg += svgLine(sfData[0].point, finalPoint);
+  svg += svgLine(sfData[1].point, finalPoint);
+  svg += svgLine(sfData[0].point, thirdPoint);
+  svg += svgLine(sfData[1].point, thirdPoint);
 
-  section.style.display = isDraw ? '' : 'none';
+  htmlNodes += renderRadialNode('P104', finalPoint, 'large', 'Final');
+  htmlNodes += renderRadialNode('P103', thirdPoint, 'large', 'Tercer puesto');
 
-  if (!isDraw && winner) {
-    winner.value = '';
-  }
-}
+  const html = `<div class="classification-scroll"><div class="radial-wrapper">
+    <div class="radial-legend">
+      <span>Dieciseisavos</span>
+      <span>Octavos</span>
+      <span>Cuartos</span>
+      <span>Semifinal</span>
+      <span>Final</span>
+      <span>Tercer puesto</span>
+    </div>
+    <div class="radial-board">
+      <svg class="radial-svg" viewBox="0 0 1120 1120" preserveAspectRatio="xMidYMid meet">
+        ${svg}
+      </svg>
+      ${htmlNodes}
+      <div class="radial-center-box">
+        <div>
+          <div class="radial-trophy">🏆</div>
+          <div class="radial-center-caption">Quiniela Barth</div>
+        </div>
+      </div>
+    </div>
+    <div class="radial-note">La llave se llena automáticamente con los partidos y resultados que registres en Admin.</div>
+  </div></div>`;
 
-function submitPred(matchId, isSecondChance=false) {
-  const a = document.getElementById('sa-'+matchId);
-  const b = document.getElementById('sb-'+matchId);
-  if (!a||!b||a.value===''||b.value==='') { showToast('Ingresa el marcador completo'); return; }
-  const score = `${a.value}-${b.value}`;
-  const minEl = document.getElementById('em-'+matchId);
-  const jugEl = document.getElementById('ej-'+matchId);
-  const match = state.matches.find(x => x.id === matchId);
-  const penWinEl = document.getElementById('penwin-'+matchId);
-  const penaltyWinner = canHavePenalties(match) && isDrawScore(score) ? cleanText(penWinEl ? penWinEl.value : '') : '';
-
-  if (isSecondChance && !canUseSecondChance(currentPlayer, match)) {
-    showToast('Esta segunda oportunidad ya no está disponible');
-    return;
-  }
-
-  if (canHavePenalties(match) && isDrawScore(score) && !penaltyWinner) {
-    showToast('Si predices empate, selecciona quién gana por penales');
-    return;
-  }
-
-  if (!state.predictions[currentPlayer]) state.predictions[currentPlayer]={};
-
-  const previous = state.predictions[currentPlayer][matchId] || {};
-  state.predictions[currentPlayer][matchId] = {
-    score,
-    minuto:minEl?minEl.value.trim():'',
-    jugador:jugEl?jugEl.value.trim():'',
-    penalties:!!(canHavePenalties(match) && isDrawScore(score)),
-    penaltyWinner,
-    secondChanceUsed: isSecondChance ? true : !!previous.secondChanceUsed
-  };
-
-  saveState();
-  showToast(isSecondChance ? 'Cambio guardado. Segunda oportunidad usada.' : '¡Predicción guardada!');
-  renderPredecir(); renderPartidos(); renderRanking();
+  document.getElementById('clasificacion-list').innerHTML = html;
 }
 
 function renderAdminMatchSelect() {
@@ -1735,6 +1750,7 @@ loadState().then(() => {
 </script>
 </body>
 </html>
+
 
 
 
